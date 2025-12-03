@@ -52,6 +52,7 @@ export class IngestClient {
                 contentType: request.mimeType,
             });
             formData.append('chatbotId', request.chatbotId);
+            formData.append('namespace', config.geneline.namespace || 'public_health_info');
 
             if (request.metadata) {
                 formData.append('metadata', JSON.stringify(request.metadata));
@@ -126,6 +127,7 @@ export class IngestClient {
                     chatbotId: request.chatbotId,
                     urls: [request.url],
                     metadata: request.metadata,
+                    namespace: config.geneline.namespace || 'public_health_info',
                 }
             );
 

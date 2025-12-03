@@ -41,6 +41,11 @@ export class MessageWorker {
             const knowledgeSearchTool = createKnowledgeSearchTool();
             toolRegistry.registerTool(knowledgeSearchTool);
 
+            // Register web search tool for current information
+            const { createWebSearchTool } = require('../agent/tools/web-search-tool');
+            const webSearchTool = createWebSearchTool();
+            toolRegistry.registerTool(webSearchTool);
+
             // Create agent loop
             this.agentLoop = new AgentLoop(
                 this.conversationHistory,

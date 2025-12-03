@@ -12,6 +12,7 @@ interface Config {
         systemPrompt?: string;
         ingestHost?: string;
         ingestPollIntervalMs: number;
+        namespace?: string;
     };
     whatsapp: {
         clientId: string;
@@ -65,6 +66,7 @@ export const config: Config = {
         ),
         ingestHost: process.env.GENELINE_INGEST_HOST,
         ingestPollIntervalMs: getEnvNumber('INGEST_POLL_INTERVAL_MS', 5000),
+        namespace: process.env.GENELINE_NAMESPACE || 'public_health_info',
     },
     whatsapp: {
         clientId: getEnvVar('WHATSAPP_CLIENT_ID', 'main-bot'),
