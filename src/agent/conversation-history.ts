@@ -75,9 +75,22 @@ export class ConversationHistory {
                 return `Tool Result (${msg.toolName}): ${msg.content}`;
             }
             return '';
-        }).join('\n');
+        }).join('\n\n');
 
-        return `\nCONVERSATION HISTORY:\n${formatted}\n`;
+        return `
+## CONVERSATION HISTORY (IMPORTANT - READ BEFORE RESPONDING)
+The following is the conversation so far. YOU MUST use this context to:
+1. Understand what the user has already told you
+2. Remember symptoms/issues they mentioned earlier
+3. Continue the conversation naturally without repeating questions
+4. Provide contextual responses based on previous exchanges
+
+---
+${formatted}
+---
+
+IMPORTANT: The current message is a CONTINUATION of the above conversation. Do NOT start fresh - use the context above!
+`;
     }
 
     /**

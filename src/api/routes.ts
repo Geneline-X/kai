@@ -7,7 +7,7 @@ import { FileProcessor } from '../utils/file-processor';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { getSupabaseClient } from '../config/supabase';
-import contentGenerationRoutes from './routes/content-generation';
+import { createContentGenerationRouter } from './routes/content-generation';
 
 interface AdminRouterDeps {
     whatsappClient: WhatsAppClient;
@@ -46,8 +46,8 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
         });
     });
 
-    // Mount content generation routes
-    router.use('/admin', contentGenerationRoutes);
+    // Mount content generation routes with WhatsApp client
+    router.use('/admin', createContentGenerationRouter(whatsappClient));
 
     /**
      * GET /qr - Get QR code for pairing
@@ -114,7 +114,7 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
             }
 
             // Format phone number to WhatsApp chat ID
-            const chatId = phone.includes('@') ? phone : `${phone} @c.us`;
+            const chatId = phone.includes('@') ? phone : `${phone}@c.us`;
 
             await whatsappClient.sendMessage(chatId, message);
 

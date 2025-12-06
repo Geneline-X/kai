@@ -46,6 +46,25 @@ export class MessageWorker {
             const webSearchTool = createWebSearchTool();
             toolRegistry.registerTool(webSearchTool);
 
+            // Register symptom triage tool for health guidance
+            const { createSymptomTriageTool } = require('../agent/tools/symptom-triage-tool');
+            const symptomTriageTool = createSymptomTriageTool();
+            toolRegistry.registerTool(symptomTriageTool);
+
+            // Register health alerts tool for public health information
+            const { createHealthAlertsTool, createEmergencyAlertsTool } = require('../agent/tools/health-alerts-tool');
+            const healthAlertsTool = createHealthAlertsTool();
+            toolRegistry.registerTool(healthAlertsTool);
+            const emergencyAlertsTool = createEmergencyAlertsTool();
+            toolRegistry.registerTool(emergencyAlertsTool);
+
+            // Register escalation tools for human handoff
+            const { createEscalationTool, createEscalationCheckTool } = require('../agent/tools/escalation-tool');
+            const escalationTool = createEscalationTool();
+            toolRegistry.registerTool(escalationTool);
+            const escalationCheckTool = createEscalationCheckTool();
+            toolRegistry.registerTool(escalationCheckTool);
+
             // Create agent loop
             this.agentLoop = new AgentLoop(
                 this.conversationHistory,
@@ -105,14 +124,29 @@ export class MessageWorker {
         const { getUserRoleByPhone } = await import('../utils/role-manager');
         const userRole = await getUserRoleByPhone(phone);
 
-        logger.debug('User role retrieved for agent processing', { chatId, userRole });
+        // Get database userId for escalation tools
+        const { getUserIdByPhone } = await import('../utils/database-sync');
+        const userId = await getUserIdByPhone(phone);
 
-        const agentResponse = await this.agentLoop!.run(chatId, messageText, userRole);
+        // Detect and track intent
+        const { detectAndTrackIntent } = await import('../utils/intent-detector');
+        const intentResult = await detectAndTrackIntent(messageText, messageId);
+
+        logger.debug('User context retrieved for agent processing', {
+            chatId,
+            userRole,
+            userId,
+            intent: intentResult.intent,
+            intentConfidence: intentResult.confidence
+        });
+
+        const agentResponse = await this.agentLoop!.run(chatId, messageText, userRole, userId || undefined, phone);
 
         logger.info('Agent processing completed', {
             chatId,
             messageId,
             userRole,
+            userId,
             iterations: agentResponse.iterations,
             toolCallsCount: agentResponse.toolCallsCount,
             responseLength: agentResponse.response.length,
@@ -271,6 +305,46 @@ export class MessageWorker {
 
                 const acknowledgment = getEscalationMessage(role, agentResponse.escalationReason || 'escalation');
                 await this.sendResponse(chatId, messageId, acknowledgment);
+
+                // Forward escalation to health workers
+                try {
+                    const { forwardToHealthWorkers, getUserInfoForEscalation } = await import('../utils/escalation-manager');
+
+                    // Get actual phone from chatId
+                    // chatId format: "232XXXXXXX@c.us" or "XXXXXXXXX@lid"
+                    const rawPhone = chatId.split('@')[0];
+
+                    // Try to get user info from database
+                    const userInfo = await getUserInfoForEscalation(userId);
+
+                    // Use the phone from chatId (strip of non-digits) or from database
+                    const actualPhone = userInfo?.phone || rawPhone;
+
+                    const report = {
+                        userId,
+                        userPhone: actualPhone,
+                        userName: userInfo?.name || 'Unknown User',
+                        reason: agentResponse.escalationReason || 'Agent detected need for human assistance',
+                        conversationSummary: 'Escalation triggered by agent',
+                        latestMessage: messageText,
+                        timestamp: new Date().toISOString(),
+                        urgencyLevel: (agentResponse.confidence !== undefined && agentResponse.confidence < 0.3 ? 'urgent' : 'normal') as 'emergency' | 'urgent' | 'normal'
+                    };
+
+                    const sendFn = async (targetChatId: string, msg: string) => {
+                        await this.sendResponse(targetChatId, messageId, msg);
+                    };
+
+                    const result = await forwardToHealthWorkers(report, sendFn);
+                    if (result.success) {
+                        logger.info('Escalation forwarded to health workers', {
+                            escalationId,
+                            notifiedContacts: result.notifiedContacts
+                        });
+                    }
+                } catch (forwardError) {
+                    logger.error('Failed to forward escalation to health workers', forwardError as Error);
+                }
             }
         } catch (error) {
             logger.error('Failed to handle escalation', error as Error);

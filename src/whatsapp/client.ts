@@ -35,13 +35,14 @@ export class WhatsAppClient extends EventEmitter {
                     '--disable-dev-shm-usage',
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
-                    '--no-zygote',
-                    '--single-process', // Important for stability
                     '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process',
                 ],
-                timeout: 60000, // 60 second timeout
+                timeout: 120000, // 120 second timeout
+            },
+            // Use web version cache to avoid version mismatch issues
+            webVersionCache: {
+                type: 'remote',
+                remotePath: 'https://raw.githubusercontent.com/AmineSoukworker/WhatsApp-Web-Version/main/version.json',
             },
         });
 
@@ -49,11 +50,22 @@ export class WhatsAppClient extends EventEmitter {
     }
 
     private setupEventHandlers(): void {
+        // Add loading event to show progress
+        this.client.on('loading_screen', (percent, message) => {
+            logger.info(`Loading WhatsApp... ${percent}% - ${message}`);
+        });
+
         this.client.on('qr', async (qr) => {
-            logger.info('QR code received, scan to authenticate');
+            logger.info('═══════════════════════════════════════════════════════');
+            logger.info('QR CODE RECEIVED - Please scan with WhatsApp mobile app');
+            logger.info('═══════════════════════════════════════════════════════');
 
             // Display in terminal
             qrCodeTerminal.generate(qr, { small: true });
+
+            logger.info('═══════════════════════════════════════════════════════');
+            logger.info('Waiting for QR code scan...');
+            logger.info('═══════════════════════════════════════════════════════');
 
             // Generate base64 PNG for API
             try {
@@ -66,7 +78,9 @@ export class WhatsAppClient extends EventEmitter {
         });
 
         this.client.on('ready', () => {
-            logger.info('WhatsApp client is ready');
+            logger.info('═══════════════════════════════════════════════════════');
+            logger.info('✓ WhatsApp client is READY');
+            logger.info('═══════════════════════════════════════════════════════');
             this.state.isReady = true;
             this.state.qrCode = undefined;
 
@@ -76,18 +90,19 @@ export class WhatsAppClient extends EventEmitter {
                     pushname: info.pushname,
                     platform: info.platform,
                 };
+                logger.info(`Connected as: ${info.pushname} (${info.platform})`);
             }
 
             this.emit('ready');
         });
 
         this.client.on('authenticated', () => {
-            logger.info('WhatsApp client authenticated');
+            logger.info('✓ WhatsApp client authenticated successfully');
             this.emit('authenticated');
         });
 
         this.client.on('auth_failure', (msg) => {
-            logger.error('WhatsApp authentication failed', new Error(msg));
+            logger.error('✗ WhatsApp authentication failed', new Error(msg));
             this.emit('auth_failure', msg);
         });
 
@@ -106,8 +121,30 @@ export class WhatsAppClient extends EventEmitter {
      * Initialize and start the WhatsApp client
      */
     async initialize(): Promise<void> {
-        logger.info('Initializing WhatsApp client...');
-        await this.client.initialize();
+        try {
+            logger.info('Initializing WhatsApp client...');
+
+            // Set up error handler for uncaught Puppeteer errors
+            this.client.pupPage?.on('error', (error) => {
+                logger.warn('Puppeteer page error (non-fatal)', { error: error.message });
+            });
+
+            await this.client.initialize();
+        } catch (error: any) {
+            // Log the error but don't crash the application
+            logger.error('WhatsApp client initialization error', error);
+
+            // Check if it's a Puppeteer context error (non-fatal)
+            if (error.message?.includes('Execution context was destroyed')) {
+                logger.warn('Puppeteer context error detected - this is usually non-fatal, continuing...');
+                // The client may still initialize successfully
+                return;
+            }
+
+            // For other errors, emit an event but don't throw
+            this.emit('initialization_error', error);
+            logger.warn('WhatsApp client initialization encountered an error, but the bot will continue running');
+        }
     }
 
     /**

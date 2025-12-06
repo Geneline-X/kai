@@ -4,7 +4,6 @@ import { logger } from './logger';
 interface UserData {
     phone: string;
     name?: string;
-    role?: string;
 }
 
 interface MessageData {
@@ -33,7 +32,6 @@ export async function upsertUser(userData: UserData): Promise<string | null> {
             .upsert({
                 phone: userData.phone,
                 name: userData.name,
-                role: userData.role || 'support', // Default to support role
                 last_active: new Date().toISOString(),
                 status: 'active',
             }, {

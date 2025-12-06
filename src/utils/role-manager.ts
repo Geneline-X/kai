@@ -17,7 +17,8 @@ import {
 
 /**
  * Get user's current role from database
- * Checks special_contacts table first (admin-assigned roles), then users table
+ * Checks special_contacts table for admin-assigned roles
+ * Regular users default to SUPPORT role
  */
 export async function getUserRole(userId: string): Promise<UserRole> {
     try {
@@ -26,7 +27,7 @@ export async function getUserRole(userId: string): Promise<UserRole> {
         // Get user's phone number first
         const { data: userData, error: userError } = await supabase
             .from('users')
-            .select('phone, role')
+            .select('phone')
             .eq('id', userId)
             .single();
 
@@ -35,7 +36,7 @@ export async function getUserRole(userId: string): Promise<UserRole> {
             return UserRole.SUPPORT;
         }
 
-        // Check if user is in special_contacts (admin-assigned roles take priority)
+        // Check if user is in special_contacts (admin-assigned roles)
         if (userData.phone) {
             const { data: specialContact } = await supabase
                 .from('special_contacts')
@@ -50,8 +51,8 @@ export async function getUserRole(userId: string): Promise<UserRole> {
             }
         }
 
-        // Use role from users table
-        return parseRole(userData.role, UserRole.SUPPORT);
+        // Regular users get default SUPPORT role
+        return UserRole.SUPPORT;
     } catch (error) {
         logger.error('Error getting user role', error as Error, { userId });
         return UserRole.SUPPORT;
@@ -60,13 +61,14 @@ export async function getUserRole(userId: string): Promise<UserRole> {
 
 /**
  * Get user's role by phone number
- * Checks special_contacts table first (admin-assigned roles), then users table
+ * Checks special_contacts table for admin-assigned roles
+ * Regular users default to SUPPORT role
  */
 export async function getUserRoleByPhone(phone: string): Promise<UserRole> {
     try {
         const supabase = getSupabaseClient();
 
-        // First, check if user is in special_contacts (admin-assigned roles take priority)
+        // Check if user is in special_contacts (admin-assigned roles)
         const { data: specialContact, error: specialError } = await supabase
             .from('special_contacts')
             .select('role')
@@ -79,19 +81,9 @@ export async function getUserRoleByPhone(phone: string): Promise<UserRole> {
             return parseRole(specialContact.role, UserRole.SUPPORT);
         }
 
-        // Fall back to users table
-        const { data, error } = await supabase
-            .from('users')
-            .select('role')
-            .eq('phone', phone)
-            .single();
-
-        if (error || !data) {
-            logger.debug('User not found or no role set, using default', { phone });
-            return UserRole.SUPPORT;
-        }
-
-        return parseRole(data.role, UserRole.SUPPORT);
+        // Regular users get default SUPPORT role
+        logger.debug('No special role found, using default SUPPORT', { phone });
+        return UserRole.SUPPORT;
     } catch (error) {
         logger.error('Error getting user role by phone', error as Error, { phone });
         return UserRole.SUPPORT;
@@ -100,30 +92,14 @@ export async function getUserRoleByPhone(phone: string): Promise<UserRole> {
 
 /**
  * Set user's role in database
+ * Note: Roles are managed via special_contacts table by admins
+ * This function is kept for API compatibility but does not update users table
  */
 export async function setUserRole(userId: string, role: UserRole): Promise<boolean> {
-    try {
-        const supabase = getSupabaseClient();
-
-        const { error } = await supabase
-            .from('users')
-            .update({
-                role,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId);
-
-        if (error) {
-            logger.error('Failed to set user role', error);
-            return false;
-        }
-
-        logger.info('User role updated', { userId, role });
-        return true;
-    } catch (error) {
-        logger.error('Error setting user role', error as Error, { userId, role });
-        return false;
-    }
+    // Roles are managed via special_contacts table by admins
+    // To change a user's role, add them to special_contacts via the admin dashboard
+    logger.warn('setUserRole called - roles should be managed via special_contacts in admin dashboard', { userId, role });
+    return false;
 }
 
 /**
@@ -191,13 +167,15 @@ export function getEscalationMessage(fromRole: UserRole, reason: string): string
 
 /**
  * Get list of users with a specific role (for escalation routing)
+ * Uses special_contacts table where roles are assigned
  */
 export async function getUsersWithRole(role: UserRole): Promise<Array<{ id: string; phone: string; name?: string }>> {
     try {
         const supabase = getSupabaseClient();
 
+        // Query special_contacts for users with the specified role
         const { data, error } = await supabase
-            .from('users')
+            .from('special_contacts')
             .select('id, phone, name')
             .eq('role', role)
             .eq('status', 'active');
@@ -216,24 +194,12 @@ export async function getUsersWithRole(role: UserRole): Promise<Array<{ id: stri
 
 /**
  * Initialize default role for a new user
+ * Note: Roles are managed via special_contacts table, not users table
+ * This function is a no-op but kept for API compatibility
  */
 export async function initializeUserRole(userId: string, defaultRole: UserRole = UserRole.SUPPORT): Promise<void> {
-    try {
-        const supabase = getSupabaseClient();
-
-        // Check if user already has a role
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .single();
-
-        // Only set default role if user doesn't have one
-        if (!existingUser?.role) {
-            await setUserRole(userId, defaultRole);
-            logger.info('Initialized default role for new user', { userId, defaultRole });
-        }
-    } catch (error) {
-        logger.error('Error initializing user role', error as Error, { userId });
-    }
+    // Roles are managed via special_contacts table, not users table
+    // Regular users automatically get SUPPORT role
+    logger.debug('initializeUserRole called - roles are managed via special_contacts', { userId, defaultRole });
 }
+

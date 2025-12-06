@@ -98,23 +98,29 @@ export class MessageHandler {
                 userName,
             });
 
-            // Sync user to database (async, non-blocking)
-            const phone = chatId.split('@')[0]; // Extract phone number from chatId
-            this.syncUserToDatabase(phone, userName).catch(err => {
-                logger.error('Failed to sync user to database', err);
-            });
+            // Extract phone number from chatId
+            const phone = chatId.split('@')[0];
 
-            // Store user message in database (async, non-blocking)
-            this.storeUserMessage(phone, messageText).catch(err => {
-                logger.error('Failed to store user message', err);
-            });
+            // IMPORTANT: Sync user to database FIRST and WAIT for it to complete
+            // This ensures user exists before we try to store messages
+            const userId = await this.syncUserToDatabase(phone, userName);
+
+            if (!userId) {
+                logger.warn('Could not sync user to database, messages will not be saved', { phone });
+            }
+
+            // Now store user message with the confirmed userId
+            if (userId) {
+                this.storeUserMessageWithUserId(userId, messageText).catch(err => {
+                    logger.error('Failed to store user message', err);
+                });
+            }
 
             // Check if message is a button response (1, 2, 3, or 4)
             const { isButtonResponse, getButtonAction, getUserLastTopic, handleButtonInteraction } = await import('./interactive-buttons');
 
             if (isButtonResponse(messageText)) {
                 const action = getButtonAction(messageText);
-                const userId = await this.getUserIdByPhone(phone);
 
                 if (action && userId) {
                     const lastTopic = getUserLastTopic(userId);
@@ -184,50 +190,53 @@ export class MessageHandler {
     }
 
     /**
-     * Sync user data to database
+     * Sync user data to database and return the userId
      */
-    private async syncUserToDatabase(phone: string, name?: string): Promise<void> {
+    private async syncUserToDatabase(phone: string, name?: string): Promise<string | null> {
         try {
             const userId = await upsertUser({ phone, name });
             if (userId) {
-                await incrementUserMessageCount(userId);
+                // Increment message count in background
+                incrementUserMessageCount(userId).catch((err: Error) => {
+                    logger.error('Failed to increment message count', err);
+                });
             }
+            return userId;
         } catch (error) {
             logger.error('Database sync failed for user', error as Error, { phone });
+            return null;
         }
     }
 
     /**
-     * Store user message in database and check for escalation
+     * Store user message in database with known userId
      */
-    private async storeUserMessage(phone: string, content: string): Promise<string | null> {
+    private async storeUserMessageWithUserId(userId: string, content: string): Promise<string | null> {
         try {
-            const userId = await getUserIdByPhone(phone);
-            if (userId) {
-                const messageId = await storeMessage({
-                    user_id: userId,
-                    sender: 'user',
-                    content,
+            const messageId = await storeMessage({
+                user_id: userId,
+                sender: 'user',
+                content,
+            });
+
+            // Check if message should be escalated
+            if (messageId) {
+                this.checkAndEscalate(userId, messageId, content).catch((err: Error) => {
+                    logger.error('Failed to check escalation', err);
                 });
-
-                // Check if message should be escalated
-                if (messageId) {
-                    this.checkAndEscalate(userId, messageId, content).catch(err => {
-                        logger.error('Failed to check escalation', err);
-                    });
-                }
-
-                return messageId;
             }
-            return null;
+
+            return messageId;
         } catch (error) {
-            logger.error('Failed to store user message in database', error as Error, { phone });
+            logger.error('Failed to store user message in database', error as Error, { userId });
             return null;
         }
     }
+
 
     /**
      * Store bot response in database
+     * This method looks up the userId by phone - for cases where we don't have userId yet
      */
     private async storeBotMessage(phone: string, content: string): Promise<void> {
         try {
@@ -238,6 +247,18 @@ export class MessageHandler {
                     sender: 'bot',
                     content,
                 });
+            } else {
+                // User might not exist yet - try to create them first
+                const newUserId = await upsertUser({ phone });
+                if (newUserId) {
+                    await storeMessage({
+                        user_id: newUserId,
+                        sender: 'bot',
+                        content,
+                    });
+                } else {
+                    logger.warn('Could not store bot message - user not found', { phone });
+                }
             }
         } catch (error) {
             logger.error('Failed to store bot message in database', error as Error, { phone });
@@ -321,4 +342,58 @@ export class MessageHandler {
             return null;
         }
     }
+
+    /**
+     * Forward pending escalation to health workers
+     * This is called after the agent processes an escalation request
+     */
+    async forwardPendingEscalation(userId: string): Promise<boolean> {
+        try {
+            const { getPendingEscalation, clearPendingEscalation } = await import('../agent/tools/escalation-tool');
+            const { forwardToHealthWorkers, formatEscalationReport } = await import('../utils/escalation-manager');
+
+            const pending = getPendingEscalation(userId);
+            if (!pending) {
+                logger.debug('No pending escalation to forward', { userId });
+                return false;
+            }
+
+            logger.info('Forwarding escalation to health workers', {
+                userId,
+                urgencyLevel: pending.report.urgencyLevel
+            });
+
+            // Create a send function that uses this handler
+            const sendMessageFn = async (chatId: string, message: string): Promise<void> => {
+                await this.whatsappClient.sendMessage(chatId, message);
+            };
+
+            // Forward to health workers
+            const result = await forwardToHealthWorkers(pending.report, sendMessageFn);
+
+            if (result.success) {
+                logger.info('Escalation forwarded successfully', {
+                    userId,
+                    notifiedContacts: result.notifiedContacts
+                });
+                clearPendingEscalation(userId);
+                return true;
+            } else {
+                logger.warn('Failed to forward escalation - no health workers notified', { userId });
+                return false;
+            }
+
+        } catch (error) {
+            logger.error('Error forwarding pending escalation', error as Error);
+            return false;
+        }
+    }
+
+    /**
+     * Send message to a chat (exposed for escalation forwarding)
+     */
+    async sendMessageToChat(chatId: string, message: string): Promise<void> {
+        await this.whatsappClient.sendMessage(chatId, message);
+    }
 }
+
