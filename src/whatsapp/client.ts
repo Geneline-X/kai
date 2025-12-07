@@ -22,44 +22,55 @@ export class WhatsAppClient extends EventEmitter {
     private state: WhatsAppClientState = {
         isReady: false,
     };
+    private userDataDir: string;
 
     constructor() {
         super();
 
+        // Use a unique temp directory each time to prevent profile lock
+        this.userDataDir = `/tmp/chrome_profile_${Date.now()}`;
+        fs.mkdirSync(this.userDataDir, { recursive: true });
+        logger.info(`Using Chrome profile directory: ${this.userDataDir}`);
+
         this.client = new Client({
             authStrategy: new LocalAuth({
                 clientId: config.whatsapp.clientId,
+                dataPath: './.wwebjs_auth', // Keep session data on persistent disk
             }),
+            takeoverOnConflict: true,
+            takeoverTimeoutMs: 0,
             puppeteer: {
                 headless: true,
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+                userDataDir: this.userDataDir,
                 args: [
+                    `--user-data-dir=${this.userDataDir}`,
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
                     '--disable-gpu',
-                    // Memory optimization flags
-                    '--single-process',
-                    '--no-zygote',
                     '--disable-extensions',
                     '--disable-background-networking',
                     '--disable-background-timer-throttling',
-                    '--disable-backgrounding-occluded-windows',
                     '--disable-breakpad',
-                    '--disable-component-extensions-with-background-pages',
+                    '--disable-client-side-phishing-detection',
                     '--disable-component-update',
                     '--disable-default-apps',
+                    '--disable-domain-reliability',
+                    '--disable-features=AudioServiceOutOfProcess',
                     '--disable-hang-monitor',
                     '--disable-ipc-flooding-protection',
                     '--disable-popup-blocking',
                     '--disable-prompt-on-repost',
                     '--disable-renderer-backgrounding',
                     '--disable-sync',
-                    '--disable-translate',
                     '--metrics-recording-only',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
                     '--mute-audio',
-                    '--no-default-browser-check',
+                    '--ignore-certificate-errors',
+                    '--ignore-ssl-errors',
                     '--js-flags=--max-old-space-size=256',
                 ],
                 timeout: 120000, // 120 second timeout
