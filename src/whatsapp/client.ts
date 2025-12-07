@@ -158,6 +158,34 @@ export class WhatsAppClient extends EventEmitter {
                 // Ignore errors - pkill may not find any processes
             }
 
+            // Delete Chromium lock files to prevent profile lock error
+            // These lock files persist on the disk and block new instances
+            const sessionDir = path.join(process.cwd(), '.wwebjs_auth');
+            if (fs.existsSync(sessionDir)) {
+                logger.info('Cleaning up Chromium lock files...');
+                const cleanupLockFiles = (dir: string) => {
+                    try {
+                        const entries = fs.readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const fullPath = path.join(dir, entry.name);
+                            if (entry.isDirectory()) {
+                                cleanupLockFiles(fullPath);
+                            } else if (
+                                entry.name === 'SingletonLock' ||
+                                entry.name === 'SingletonCookie' ||
+                                entry.name === 'SingletonSocket'
+                            ) {
+                                fs.unlinkSync(fullPath);
+                                logger.info(`Deleted lock file: ${fullPath}`);
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                };
+                cleanupLockFiles(sessionDir);
+            }
+
             // Set up error handler for uncaught Puppeteer errors
             this.client.pupPage?.on('error', (error) => {
                 logger.warn('Puppeteer page error (non-fatal)', { error: error.message });
