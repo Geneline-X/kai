@@ -43,6 +43,7 @@ export class VoiceService {
             logger.info('Transcribing audio', {
                 mimeType,
                 bufferSize: audioBuffer.length,
+                apiHost: this.apiHost,
             });
 
             const formData = new FormData();
@@ -63,20 +64,47 @@ export class VoiceService {
                 }
             );
 
-            logger.info('Transcription completed', {
-                success: true,
-                textLength: response.data?.text?.length || 0,
+            // Log the full response to understand the structure
+            logger.info('Transcription API response', {
+                status: response.status,
+                responseData: JSON.stringify(response.data),
             });
 
-            return {
-                success: true,
-                text: response.data?.text || response.data?.transcription || '',
-            };
+            // Try multiple possible field names for the transcription text
+            const transcribedText =
+                response.data?.text ||
+                response.data?.transcription ||
+                response.data?.result ||
+                response.data?.transcript ||
+                response.data?.output ||
+                (typeof response.data === 'string' ? response.data : '');
+
+            if (transcribedText && transcribedText.trim().length > 0) {
+                logger.info('Transcription completed', {
+                    success: true,
+                    textLength: transcribedText.length,
+                    preview: transcribedText.substring(0, 100),
+                });
+
+                return {
+                    success: true,
+                    text: transcribedText,
+                };
+            } else {
+                logger.warn('Transcription returned empty text', {
+                    responseData: JSON.stringify(response.data),
+                });
+                return {
+                    success: false,
+                    error: 'Transcription returned empty text',
+                };
+            }
         } catch (error: any) {
             const errorMessage = error.response?.data?.error || error.message;
             logger.error('Transcription failed', error, {
                 status: error.response?.status,
                 errorMessage,
+                responseData: error.response?.data ? JSON.stringify(error.response.data) : 'N/A',
             });
 
             return {
