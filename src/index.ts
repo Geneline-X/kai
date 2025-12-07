@@ -60,6 +60,11 @@ class Application {
             queueManager: this.queueManager,
         });
 
+        // Redirect root to /scan
+        this.apiServer.getApp().get('/', (req, res) => {
+            res.redirect('/scan');
+        });
+
         this.apiServer.getApp().use('/', router);
         this.apiServer.setupErrorHandling();
     }
