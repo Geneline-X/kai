@@ -44,6 +44,11 @@ class Application {
             await this.messageHandler.sendResponse(chatId, response);
         });
 
+        // Set voice response sender for worker
+        this.messageWorker.setVoiceResponseSender(async (chatId, audioBuffer) => {
+            await this.whatsappClient.sendVoiceMessage(chatId, audioBuffer);
+        });
+
         this.messageWorker.setFallbackSender(async (chatId) => {
             // Send a generic fallback message
             await this.messageHandler.sendResponse(chatId, "I'm sorry, I couldn't process your request. Please try again.");

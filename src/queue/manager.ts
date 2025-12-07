@@ -14,6 +14,10 @@ export interface QueuedMessage {
         data_base64: string;
     }>;
     timestamp: number;
+    /** Flag to indicate this message was a voice note */
+    isVoiceMessage?: boolean;
+    /** Original voice audio buffer for potential re-use */
+    voiceAudioBuffer?: Buffer;
 }
 
 interface QueueStats {

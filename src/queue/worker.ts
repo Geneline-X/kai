@@ -90,16 +90,16 @@ export class MessageWorker {
      * Process a queued message
      */
     async processMessage(message: QueuedMessage): Promise<void> {
-        const { chatId, messageId, messageText, isGroup, userName, mediaAttachments } = message;
+        const { chatId, messageId, messageText, isGroup, userName, mediaAttachments, isVoiceMessage } = message;
 
         try {
             logEvent.incomingMessage(chatId, messageId, !!mediaAttachments?.length);
 
             // Use agent mode if enabled and initialized
             if (config.agent.enabled && this.agentLoop) {
-                return this.processWithAgent(chatId, messageId, messageText);
+                return this.processWithAgent(chatId, messageId, messageText, isVoiceMessage);
             } else {
-                return this.processDirectly(chatId, messageId, messageText, isGroup, userName, mediaAttachments);
+                return this.processDirectly(chatId, messageId, messageText, isGroup, userName, mediaAttachments, isVoiceMessage);
             }
 
         } catch (error) {
@@ -116,8 +116,8 @@ export class MessageWorker {
     /**
      * Process message using agent framework
      */
-    private async processWithAgent(chatId: string, messageId: string, messageText: string): Promise<void> {
-        logger.info('Processing message with agent', { chatId, messageId });
+    private async processWithAgent(chatId: string, messageId: string, messageText: string, isVoiceMessage?: boolean): Promise<void> {
+        logger.info('Processing message with agent', { chatId, messageId, isVoiceMessage });
 
         // Get user role for role-based prompting
         const phone = chatId.split('@')[0];
@@ -159,8 +159,8 @@ export class MessageWorker {
             await this.handleEscalation(chatId, messageId, messageText, agentResponse, userRole);
         }
 
-        // Send response
-        return this.sendResponse(chatId, messageId, agentResponse.response);
+        // Send response (voice or text based on original message type)
+        return this.sendResponseWithVoice(chatId, messageId, agentResponse.response, isVoiceMessage);
     }
 
     /**
@@ -172,9 +172,10 @@ export class MessageWorker {
         messageText: string,
         isGroup: boolean,
         userName?: string,
-        mediaAttachments?: Array<{ filename: string; mime: string; data_base64: string }>
+        mediaAttachments?: Array<{ filename: string; mime: string; data_base64: string }>,
+        isVoiceMessage?: boolean
     ): Promise<void> {
-        logger.info('Processing message directly (legacy mode)', { chatId, messageId });
+        logger.info('Processing message directly (legacy mode)', { chatId, messageId, isVoiceMessage });
 
         // Build Geneline request
         const request = GenelineClient.buildRequest(
@@ -193,8 +194,8 @@ export class MessageWorker {
 
         logEvent.aiResponseReceived(chatId, messageId, aiResponse.length);
 
-        // Return the response (will be sent by WhatsApp handler)
-        return this.sendResponse(chatId, messageId, aiResponse);
+        // Send response (voice or text based on original message type)
+        return this.sendResponseWithVoice(chatId, messageId, aiResponse, isVoiceMessage);
     }
 
     /**
@@ -211,6 +212,63 @@ export class MessageWorker {
     }
 
     /**
+     * Send voice message to WhatsApp
+     * This will be overridden to use the actual WhatsApp client
+     */
+    private async sendVoiceResponse(chatId: string, audioBuffer: Buffer): Promise<void> {
+        // Placeholder - will be set by the main app
+        logger.debug('Sending voice response to WhatsApp', {
+            chatId,
+            audioSize: audioBuffer.length,
+        });
+    }
+
+    /**
+     * Send response with optional voice conversion
+     * If the original message was a voice note, convert the text response to speech
+     */
+    private async sendResponseWithVoice(
+        chatId: string,
+        messageId: string,
+        response: string,
+        isVoiceMessage?: boolean
+    ): Promise<void> {
+        // If original was voice message, try to send voice response
+        if (isVoiceMessage) {
+            try {
+                const { getVoiceService } = await import('../services/voice-service');
+                const voiceService = getVoiceService();
+
+                logger.info('Converting text response to speech for voice reply', {
+                    chatId,
+                    responseLength: response.length,
+                });
+
+                const ttsResult = await voiceService.synthesizeSpeech(response);
+
+                if (ttsResult.success && ttsResult.audioBuffer) {
+                    logger.info('TTS successful, sending voice response', {
+                        chatId,
+                        audioSize: ttsResult.audioBuffer.length,
+                    });
+                    await this.sendVoiceResponse(chatId, ttsResult.audioBuffer);
+                    return;
+                } else {
+                    logger.warn('TTS failed, falling back to text response', {
+                        chatId,
+                        error: ttsResult.error,
+                    });
+                }
+            } catch (error) {
+                logger.error('Error in voice response, falling back to text', error as Error);
+            }
+        }
+
+        // Fall back to text response
+        return this.sendResponse(chatId, messageId, response);
+    }
+
+    /**
      * Send fallback message on error
      */
     private async sendFallbackMessage(chatId: string): Promise<void> {
@@ -222,6 +280,13 @@ export class MessageWorker {
      */
     setResponseSender(sender: (chatId: string, messageId: string, response: string) => Promise<void>): void {
         this.sendResponse = sender;
+    }
+
+    /**
+     * Set the voice response sender function (injected from WhatsApp client)
+     */
+    setVoiceResponseSender(sender: (chatId: string, audioBuffer: Buffer) => Promise<void>): void {
+        this.sendVoiceResponse = sender;
     }
 
     /**

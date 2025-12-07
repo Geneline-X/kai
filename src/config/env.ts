@@ -38,6 +38,9 @@ interface Config {
         url: string;
         serviceRoleKey: string;
     };
+    kay: {
+        host: string;
+    };
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
@@ -95,5 +98,8 @@ export const config: Config = {
     supabase: {
         url: getEnvVar('SUPABASE_URL'),
         serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY'),
+    },
+    kay: {
+        host: getEnvVar('KAY_HOST', 'https://kay.geneline-x.net'),
     },
 };

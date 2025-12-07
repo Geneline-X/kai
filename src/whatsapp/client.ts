@@ -256,6 +256,32 @@ export class WhatsAppClient extends EventEmitter {
     }
 
     /**
+     * Send a voice message to a chat
+     * @param chatId - The chat ID to send to
+     * @param audioBuffer - WAV audio buffer to send as voice message
+     */
+    async sendVoiceMessage(chatId: string, audioBuffer: Buffer): Promise<void> {
+        if (!this.state.isReady) {
+            throw new Error('WhatsApp client is not ready');
+        }
+
+        const { MessageMedia } = await import('whatsapp-web.js');
+
+        // Create media from buffer - WhatsApp prefers opus/ogg but accepts wav
+        const media = new MessageMedia(
+            'audio/wav',
+            audioBuffer.toString('base64'),
+            'voice_response.wav'
+        );
+
+        await this.client.sendMessage(chatId, media, {
+            sendAudioAsVoice: true,
+        });
+
+        logger.debug('Voice message sent', { chatId, audioSize: audioBuffer.length });
+    }
+
+    /**
      * Send typing indicator to a chat
      */
     async sendTyping(chatId: string): Promise<void> {

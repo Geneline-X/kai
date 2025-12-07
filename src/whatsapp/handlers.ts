@@ -4,6 +4,7 @@ import { QueueManager } from '../queue/manager';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { upsertUser, storeMessage, getUserIdByPhone, incrementUserMessageCount } from '../utils/database-sync';
+import { getVoiceService } from '../services/voice-service';
 
 export class MessageHandler {
     private whatsappClient: WhatsAppClient;
@@ -17,11 +18,66 @@ export class MessageHandler {
     }
 
     /**
-     * Extracts the content of a message, handling various message types.
+     * Result of extracting message content, including voice message metadata
      */
-    private async extractMessageContent(message: Message): Promise<string | undefined> {
+    private async extractMessageContent(message: Message): Promise<{
+        text: string | undefined;
+        isVoiceMessage: boolean;
+        audioBuffer?: Buffer;
+    }> {
+        // Check if this is a voice message (push-to-talk)
+        if (message.type === 'ptt' || message.type === 'audio') {
+            logger.info('Voice message detected, downloading and transcribing', {
+                messageId: message.id._serialized,
+                type: message.type,
+            });
+
+            try {
+                // Download the voice message media
+                const media = await message.downloadMedia();
+                if (!media) {
+                    logger.warn('Could not download voice message media');
+                    return { text: undefined, isVoiceMessage: true };
+                }
+
+                const audioBuffer = Buffer.from(media.data, 'base64');
+                logger.info('Voice message downloaded', {
+                    mimeType: media.mimetype,
+                    size: audioBuffer.length,
+                });
+
+                // Transcribe the audio
+                const voiceService = getVoiceService();
+                const transcription = await voiceService.transcribeAudio(
+                    audioBuffer,
+                    media.mimetype
+                );
+
+                if (transcription.success && transcription.text) {
+                    logger.info('Voice transcription successful', {
+                        textLength: transcription.text.length,
+                        preview: transcription.text.substring(0, 50),
+                    });
+                    return {
+                        text: transcription.text,
+                        isVoiceMessage: true,
+                        audioBuffer,
+                    };
+                } else {
+                    logger.warn('Voice transcription failed', {
+                        error: transcription.error,
+                    });
+                    return { text: undefined, isVoiceMessage: true, audioBuffer };
+                }
+            } catch (error) {
+                logger.error('Error processing voice message', error as Error);
+                return { text: undefined, isVoiceMessage: true };
+            }
+        }
+
+        // Regular text message
         if (message.body && message.body.trim().length > 0) {
-            return message.body;
+            return { text: message.body, isVoiceMessage: false };
         }
 
         // Handle quoted messages
@@ -29,14 +85,14 @@ export class MessageHandler {
             try {
                 const quotedMsg = await message.getQuotedMessage();
                 if (quotedMsg.body && quotedMsg.body.trim().length > 0) {
-                    return quotedMsg.body;
+                    return { text: quotedMsg.body, isVoiceMessage: false };
                 }
             } catch (error) {
                 logger.debug('Could not get quoted message body', { error: (error as Error).message });
             }
         }
 
-        return undefined;
+        return { text: undefined, isVoiceMessage: false };
     }
 
     /**
@@ -69,10 +125,18 @@ export class MessageHandler {
                 return;
             }
 
-            const messageText = await this.extractMessageContent(message);
+            const messageResult = await this.extractMessageContent(message);
+            const messageText = messageResult.text;
+            const isVoiceMessage = messageResult.isVoiceMessage;
 
             // Get message content
             if (!messageText || messageText.trim().length === 0) {
+                // For voice messages that failed transcription, send a helpful message
+                if (isVoiceMessage) {
+                    logger.warn('Voice message could not be transcribed', { chatId, messageId });
+                    await this.sendResponse(chatId, "I received your voice message but couldn't understand it. Please try again or send a text message.");
+                    return;
+                }
                 logger.debug('Ignoring empty message', { chatId, messageId });
                 return;
             }
@@ -95,6 +159,7 @@ export class MessageHandler {
             logger.info('Handling message', {
                 from: chatId,
                 hasText: !!messageText,
+                isVoiceMessage,
                 userName,
             });
 
@@ -157,6 +222,8 @@ export class MessageHandler {
                 isGroup: chat.isGroup,
                 userName,
                 timestamp: Date.now(),
+                isVoiceMessage,
+                voiceAudioBuffer: messageResult.audioBuffer,
             });
 
         } catch (error) {
