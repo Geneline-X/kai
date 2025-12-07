@@ -224,8 +224,8 @@ export class MessageWorker {
     }
 
     /**
-     * Send response with optional voice conversion
-     * If the original message was a voice note, convert the text response to speech
+     * Send response - always sends text response
+     * Voice messages are transcribed but response is always text
      */
     private async sendResponseWithVoice(
         chatId: string,
@@ -233,38 +233,15 @@ export class MessageWorker {
         response: string,
         isVoiceMessage?: boolean
     ): Promise<void> {
-        // If original was voice message, try to send voice response
+        // Log if this was originally a voice message (for debugging)
         if (isVoiceMessage) {
-            try {
-                const { getVoiceService } = await import('../services/voice-service');
-                const voiceService = getVoiceService();
-
-                logger.info('Converting text response to speech for voice reply', {
-                    chatId,
-                    responseLength: response.length,
-                });
-
-                const ttsResult = await voiceService.synthesizeSpeech(response);
-
-                if (ttsResult.success && ttsResult.audioBuffer) {
-                    logger.info('TTS successful, sending voice response', {
-                        chatId,
-                        audioSize: ttsResult.audioBuffer.length,
-                    });
-                    await this.sendVoiceResponse(chatId, ttsResult.audioBuffer);
-                    return;
-                } else {
-                    logger.warn('TTS failed, falling back to text response', {
-                        chatId,
-                        error: ttsResult.error,
-                    });
-                }
-            } catch (error) {
-                logger.error('Error in voice response, falling back to text', error as Error);
-            }
+            logger.info('Voice message processed, sending text response', {
+                chatId,
+                responseLength: response.length,
+            });
         }
 
-        // Fall back to text response
+        // Always send text response
         return this.sendResponse(chatId, messageId, response);
     }
 
