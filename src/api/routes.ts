@@ -81,6 +81,64 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
     });
 
     /**
+     * GET /scan - Web page to display QR code
+     * Easier for users to scan than generic JSON or logs
+     */
+    router.get('/scan', (req: Request, res: Response) => {
+        const state = whatsappClient.getState();
+
+        let content = '';
+        const refreshMeta = '<meta http-equiv="refresh" content="5">'; // Refresh every 5 seconds
+
+        if (state.isReady) {
+            content = `
+                <div style="text-align: center; font-family: sans-serif; padding: 50px;">
+                    <h1 style="color: green;">✅ WhatsApp Connected!</h1>
+                    <p>The bot is successfully connected to WhatsApp.</p>
+                    <p>Client: ${state.clientInfo?.pushname || 'Unknown'}</p>
+                    <p>Platform: ${state.clientInfo?.platform || 'Unknown'}</p>
+                </div>
+            `;
+        } else if (state.qrCode) {
+            content = `
+                <div style="text-align: center; font-family: sans-serif; padding: 50px;">
+                    <h1>Scan this QR Code</h1>
+                    <p>Open WhatsApp on your phone > Linked Devices > Link a Device</p>
+                    <div style="margin: 20px;">
+                        <img src="${state.qrCode}" alt="WhatsApp QR Code" style="border: 1px solid #ccc; padding: 10px; border-radius: 8px;" />
+                    </div>
+                    <p style="color: #666; font-size: 14px;">Page refreshes automatically...</p>
+                </div>
+            `;
+        } else {
+            content = `
+                <div style="text-align: center; font-family: sans-serif; padding: 50px;">
+                    <h1>⏳ Loading QR Code...</h1>
+                    <p>Please wait while we generate a new QR code.</p>
+                    <div style="margin: 20px; font-size: 24px;">🔄</div>
+                    <p>Check back in a few seconds.</p>
+                </div>
+            `;
+        }
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>WhatsApp Bot - Scan QR</title>
+                    ${!state.isReady ? refreshMeta : ''}
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                </head>
+                <body style="background-color: #f0f2f5; margin: 0;">
+                    ${content}
+                </body>
+            </html>
+        `;
+
+        res.send(html);
+    });
+
+    /**
      * GET /status - Get bot status and metrics
      */
     router.get('/status', (req: Request, res: Response) => {
