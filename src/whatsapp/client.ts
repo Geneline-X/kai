@@ -22,15 +22,9 @@ export class WhatsAppClient extends EventEmitter {
     private state: WhatsAppClientState = {
         isReady: false,
     };
-    private userDataDir: string;
 
     constructor() {
         super();
-
-        // Use a unique temp directory each time to prevent profile lock
-        this.userDataDir = `/tmp/chrome_profile_${Date.now()}`;
-        fs.mkdirSync(this.userDataDir, { recursive: true });
-        logger.info(`Using Chrome profile directory: ${this.userDataDir}`);
 
         this.client = new Client({
             authStrategy: new LocalAuth({
@@ -42,9 +36,7 @@ export class WhatsAppClient extends EventEmitter {
             puppeteer: {
                 headless: true,
                 executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-                userDataDir: this.userDataDir,
                 args: [
-                    `--user-data-dir=${this.userDataDir}`,
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
