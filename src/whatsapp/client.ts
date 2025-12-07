@@ -141,7 +141,24 @@ export class WhatsAppClient extends EventEmitter {
         });
 
         this.client.on('message', (message) => {
+            logger.info('📩 Message received', {
+                from: message.from,
+                body: message.body?.substring(0, 50),
+                type: message.type,
+                isStatus: message.isStatus,
+                fromMe: message.fromMe,
+            });
             this.emit('message', message);
+        });
+
+        // Also listen for message_create which catches all messages including outgoing
+        this.client.on('message_create', (message) => {
+            if (!message.fromMe) {
+                logger.debug('📨 Message create event (incoming)', {
+                    from: message.from,
+                    body: message.body?.substring(0, 30),
+                });
+            }
         });
     }
 
