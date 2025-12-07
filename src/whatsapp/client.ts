@@ -1,6 +1,9 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 import qrCodeTerminal from 'qrcode-terminal';
+import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { EventEmitter } from 'events';
@@ -145,6 +148,15 @@ export class WhatsAppClient extends EventEmitter {
     async initialize(): Promise<void> {
         try {
             logger.info('Initializing WhatsApp client...');
+
+            // Kill any zombie Chromium processes to prevent profile lock
+            try {
+                logger.info('Cleaning up any zombie Chromium processes...');
+                execSync('pkill -f chromium || true', { stdio: 'ignore' });
+                execSync('pkill -f chrome || true', { stdio: 'ignore' });
+            } catch (e) {
+                // Ignore errors - pkill may not find any processes
+            }
 
             // Set up error handler for uncaught Puppeteer errors
             this.client.pupPage?.on('error', (error) => {
