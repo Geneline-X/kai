@@ -5,7 +5,7 @@ services:
   - type: web
     name: kai-whatsapp-bot
     runtime: docker
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: Dockerfile
     region: oregon  # or frankfurt, singapore, ohio
     plan: starter  # starter, standard, pro
     
