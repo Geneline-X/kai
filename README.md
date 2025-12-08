@@ -2,6 +2,12 @@
 
 A production-ready Node.js TypeScript service that bridges WhatsApp messages to Geneline-X AI and relays responses back.
 
+## Access the Bot
+
+**You can access the bot on this number: +23275332939**
+
+Simply send a WhatsApp message to this number to start chatting with the AI health assistant.
+
 ## Features
 
 - ✅ **Custom Agent Framework** - Intelligent conversation orchestration with tool calling (built on Geneline-X)
