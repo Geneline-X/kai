@@ -40,6 +40,7 @@ interface Config {
     };
     kay: {
         host: string;
+        apiKey: string;
     };
 }
 
@@ -101,5 +102,6 @@ export const config: Config = {
     },
     kay: {
         host: getEnvVar('KAY_HOST', 'https://kay.geneline-x.net'),
+        apiKey: getEnvVar('KAY_API_KEY'),
     },
 };

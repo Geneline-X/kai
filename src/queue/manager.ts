@@ -18,6 +18,11 @@ export interface QueuedMessage {
     isVoiceMessage?: boolean;
     /** Original voice audio buffer for potential re-use */
     voiceAudioBuffer?: Buffer;
+    /** GPS coordinates from location message */
+    location?: {
+        latitude: number;
+        longitude: number;
+    };
 }
 
 interface QueueStats {

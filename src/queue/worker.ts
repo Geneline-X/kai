@@ -65,6 +65,11 @@ export class MessageWorker {
             const escalationCheckTool = createEscalationCheckTool();
             toolRegistry.registerTool(escalationCheckTool);
 
+            // Register find facility tool for location-based search
+            const { createFindFacilityTool } = require('../agent/tools/find-facility-tool');
+            const findFacilityTool = createFindFacilityTool();
+            toolRegistry.registerTool(findFacilityTool);
+
             // Create agent loop
             this.agentLoop = new AgentLoop(
                 this.conversationHistory,

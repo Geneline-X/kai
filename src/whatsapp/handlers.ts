@@ -24,7 +24,32 @@ export class MessageHandler {
         text: string | undefined;
         isVoiceMessage: boolean;
         audioBuffer?: Buffer;
+        location?: { latitude: number; longitude: number };
     }> {
+        // Check if this is a location message
+        if (message.type === 'location' && message.location) {
+            // WhatsApp location coordinates might be strings, convert to numbers
+            const latitude = typeof message.location.latitude === 'string'
+                ? parseFloat(message.location.latitude)
+                : message.location.latitude;
+            const longitude = typeof message.location.longitude === 'string'
+                ? parseFloat(message.location.longitude)
+                : message.location.longitude;
+
+            logger.info('Location message detected', {
+                messageId: message.id._serialized,
+                latitude,
+                longitude,
+            });
+
+            // Return formatted message for agent to process
+            return {
+                text: `[User shared location: ${latitude}, ${longitude}]\n\nPlease use the find_health_facility tool to search for nearby health facilities.`,
+                isVoiceMessage: false,
+                location: { latitude, longitude },
+            };
+        }
+
         // Check if this is a voice message (push-to-talk)
         if (message.type === 'ptt' || message.type === 'audio') {
             logger.info('Voice message detected, downloading and transcribing', {

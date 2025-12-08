@@ -25,7 +25,7 @@ export class VoiceService {
 
     constructor() {
         this.apiHost = config.kay?.host || 'https://kay.geneline-x.net';
-        this.apiKey = config.geneline.apiKey;
+        this.apiKey = config.kay?.apiKey || config.geneline.apiKey; // Fallback to geneline key if Kay key not set
     }
 
     /**
