@@ -20,21 +20,55 @@ export const krioGreetings = {
 // Symptom descriptions in Krio
 export const krioSymptoms = {
     fever: 'Fiba / Bɔdi ɔt',
-    headache: 'Ɛd de wɔri mi / Ɛd de pɛn',
-    stomachPain: 'Bɛlɛ de wɔri mi / Bɛlɛ de pɛn',
-    vomiting: 'Troway / A de vɔmit',
-    diarrhea: 'Rɔnbɛlɛ / Wata de kɔmɔt',
-    cough: 'Kɔf',
-    coldSymptoms: 'Kol kech mi',
-    weakness: 'A fil wik / Nɔ gɛt pawa',
-    dizziness: 'Ɛd de tɔn / A de dizi',
-    bodyPain: 'Bɔdi de pɛn',
-    chestPain: 'Ches de pɛn',
-    difficultyBreathing: 'A nɔ de brid fayn',
-    rash: 'Skin de itch / Rash',
-    swelling: 'Swɛl ɔp',
-    bleeding: 'Blɔd de kɔmɔt',
-    convulsions: 'Fit de kech am',
+    headache: 'Ɛd de wɔri mi / Ɛd de pɛn / Edek / A get edek',
+    stomachPain: 'Bɛlɛ de wɔri mi / Bɛlɛ de pɛn / Bele de pen',
+    vomiting: 'Troway / A de vɔmit / A de trowe',
+    diarrhea: 'Rɔnbɛlɛ / Wata de kɔmɔt / Runbele',
+    cough: 'Kɔf / A de kof',
+    coldSymptoms: 'Kol kech mi / Kold kech mi',
+    weakness: 'A fil wik / Nɔ gɛt pawa / A weak',
+    dizziness: 'Ɛd de tɔn / A de dizi / Ed de ton',
+    bodyPain: 'Bɔdi de pɛn / Bodi de pen / A get bodi pen',
+    chestPain: 'Ches de pɛn / Chest de pen',
+    difficultyBreathing: 'A nɔ de brid fayn / No de brid fine',
+    rash: 'Skin de itch / Rash / Skin de scratch',
+    swelling: 'Swɛl ɔp / Swel up / I swell',
+    bleeding: 'Blɔd de kɔmɔt / Blood de komot',
+    convulsions: 'Fit de kech am / Fit catch am',
+};
+
+// Common symptom variations (for fuzzy matching)
+export const krioSymptomVariations: Record<string, string[]> = {
+    headache: [
+        'edek', 'edik', 'ɛdɛk', 'a get edek', 'agat edik', 'a gat edek',
+        'ed de wori', 'ed de pen', 'ɛd de wɔri', 'ɛd de pɛn',
+        'mi ed de wori', 'mi ed de pen', 'my head hurt',
+        'head ache', 'headache', 'head pain'
+    ],
+    fever: [
+        'fiba', 'fever', 'bodi ot', 'bɔdi ɔt', 'body hot',
+        'a get fiba', 'a gat fiba', 'mi bodi ot', 'temperature'
+    ],
+    stomachPain: [
+        'bele de wori', 'bɛlɛ de wɔri', 'bele de pen', 'bɛlɛ de pɛn',
+        'belly pain', 'stomach pain', 'stomach ache', 'belly ache',
+        'mi bele de wori', 'a get bele pen'
+    ],
+    vomiting: [
+        'troway', 'trowe', 'a de troway', 'a de trowe',
+        'vomit', 'vomiting', 'throwing up', 'a de vomit'
+    ],
+    diarrhea: [
+        'ronbele', 'rɔnbɛlɛ', 'runbele', 'run belly',
+        'wata de komot', 'loose stool', 'diarrhea', 'watery stool'
+    ],
+    cough: [
+        'kof', 'kɔf', 'cough', 'coughing', 'a de kof', 'a de cough'
+    ],
+    bodyPain: [
+        'bodi de pen', 'bɔdi de pɛn', 'body pain', 'body ache',
+        'a get bodi pen', 'mi bodi de pen', 'aching', 'all over pain'
+    ],
 };
 
 // Urgency indicators in Krio
@@ -187,4 +221,111 @@ export function formatHealthAlertKrio(
         default:
             return krioAlertTemplates.general(params.message || '');
     }
+}
+
+/**
+ * Calculate simple string similarity (Levenshtein-like)
+ * Returns a score between 0 and 1
+ */
+function calculateSimilarity(str1: string, str2: string): number {
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+
+    // Exact match
+    if (s1 === s2) return 1.0;
+
+    // Contains match
+    if (s1.includes(s2) || s2.includes(s1)) return 0.8;
+
+    // Calculate Levenshtein distance
+    const matrix: number[][] = [];
+
+    for (let i = 0; i <= s2.length; i++) {
+        matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= s1.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= s2.length; i++) {
+        for (let j = 1; j <= s1.length; j++) {
+            if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+
+    const maxLen = Math.max(s1.length, s2.length);
+    const distance = matrix[s2.length][s1.length];
+    return 1 - (distance / maxLen);
+}
+
+/**
+ * Find matching symptom from Krio text using fuzzy matching
+ * Returns the symptom key and confidence score
+ */
+export function findKrioSymptom(text: string): { symptom: string; confidence: number } | null {
+    const lowerText = text.toLowerCase().trim();
+    let bestMatch: { symptom: string; confidence: number } | null = null;
+
+    // Check each symptom variation
+    for (const [symptom, variations] of Object.entries(krioSymptomVariations)) {
+        for (const variation of variations) {
+            const similarity = calculateSimilarity(lowerText, variation);
+
+            // If we find a good match (>= 0.7 similarity)
+            if (similarity >= 0.7) {
+                if (!bestMatch || similarity > bestMatch.confidence) {
+                    bestMatch = { symptom, confidence: similarity };
+                }
+            }
+        }
+    }
+
+    return bestMatch;
+}
+
+/**
+ * Extract symptoms from a message using fuzzy matching
+ * Returns array of detected symptoms with confidence scores
+ */
+export function extractKrioSymptoms(message: string): Array<{ symptom: string; confidence: number }> {
+    const detectedSymptoms: Array<{ symptom: string; confidence: number }> = [];
+    const words = message.toLowerCase().split(/\s+/);
+
+    // Try matching the full message first
+    const fullMatch = findKrioSymptom(message);
+    if (fullMatch && fullMatch.confidence >= 0.7) {
+        detectedSymptoms.push(fullMatch);
+        return detectedSymptoms;
+    }
+
+    // Try matching phrases (2-4 words)
+    for (let len = 4; len >= 2; len--) {
+        for (let i = 0; i <= words.length - len; i++) {
+            const phrase = words.slice(i, i + len).join(' ');
+            const match = findKrioSymptom(phrase);
+
+            if (match && match.confidence >= 0.7) {
+                // Check if we already have this symptom
+                const existing = detectedSymptoms.find(s => s.symptom === match.symptom);
+                if (!existing || match.confidence > existing.confidence) {
+                    if (existing) {
+                        existing.confidence = match.confidence;
+                    } else {
+                        detectedSymptoms.push(match);
+                    }
+                }
+            }
+        }
+    }
+
+    return detectedSymptoms;
 }

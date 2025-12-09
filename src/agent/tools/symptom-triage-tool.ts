@@ -266,7 +266,38 @@ const symptomMapping: Record<string, string> = {
 function findSymptom(query: string): string | null {
     const lowerQuery = query.toLowerCase();
 
-    // Try exact matches first
+    // First, try fuzzy Krio matching
+    const { extractKrioSymptoms } = require('../../utils/krio-phrases');
+    const krioMatches = extractKrioSymptoms(query);
+
+    if (krioMatches.length > 0) {
+        // Use the best match (highest confidence)
+        const bestMatch = krioMatches.sort((a: { symptom: string; confidence: number }, b: { symptom: string; confidence: number }) => b.confidence - a.confidence)[0];
+
+        // Map Krio symptom to database key
+        const symptomMap: Record<string, string> = {
+            'headache': 'headache',
+            'fever': 'mild_fever',
+            'stomachPain': 'mild_stomach',
+            'vomiting': 'mild_vomiting',
+            'diarrhea': 'mild_diarrhea',
+            'cough': 'cough',
+            'bodyPain': 'body_pain',
+        };
+
+        const dbKey = symptomMap[bestMatch.symptom];
+        if (dbKey) {
+            logger.info('Krio symptom detected via fuzzy matching', {
+                input: query,
+                detected: bestMatch.symptom,
+                confidence: bestMatch.confidence,
+                mappedTo: dbKey,
+            });
+            return dbKey;
+        }
+    }
+
+    // Try exact matches from symptom mapping
     for (const [key, value] of Object.entries(symptomMapping)) {
         if (lowerQuery.includes(key)) {
             return value;
