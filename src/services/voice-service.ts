@@ -70,8 +70,10 @@ export class VoiceService {
                 responseData: JSON.stringify(response.data),
             });
 
-            // Try multiple possible field names for the transcription text
+            // Kay API returns krio_text and english fields
             const transcribedText =
+                response.data?.krio_text ||
+                response.data?.english ||
                 response.data?.text ||
                 response.data?.transcription ||
                 response.data?.result ||
