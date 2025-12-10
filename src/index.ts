@@ -108,6 +108,7 @@ class Application {
             logger.info('✓ Broadcast scheduler started (runs every minute)');
 
             logger.info('Application started successfully');
+            logger.info(`Version: 1.0.1 (Conversational Update)`);
             logger.info(`Environment: ${config.nodeEnv}`);
             logger.info(`Geneline-X Host: ${config.geneline.host}`);
             logger.info(`Max Concurrency: ${config.queue.maxConcurrency}`);
