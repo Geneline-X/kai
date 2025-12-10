@@ -50,6 +50,7 @@
         "@types/pdf-parse": "^1.1.4",
         "@types/qrcode": "^1.5.5",
         "@types/qrcode-terminal": "^0.12.2",
+        "md-to-pdf": "^5.2.5",
         "ts-node": "^10.9.2",
         "typescript": "^5.3.3"
     }

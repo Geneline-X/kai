@@ -17,6 +17,40 @@ export const krioGreetings = {
     no: 'Nɔ',
 };
 
+// Conversational phrases for natural dialogue
+export const krioConversational = {
+    // Empathy and acknowledgment
+    sorryToHear: 'A sɔri fɔ yɛ dat',
+    understandFeeling: 'A ɔndastand aw yu de fil',
+    thatMustBeDifficult: 'Dat nɔ izi at ɔl',
+    iSee: 'A si',
+    iUnderstand: 'A ɔndastand',
+
+    // Encouragement
+    workTogetherOnThis: 'Wi go wok dis ɔt togɛda',
+    imHereToHelp: 'A de ya fɔ ɛp yu',
+    dontWorry: 'Nɔ wɔri',
+    youreDoingWell: 'Yu de du fayn',
+
+    // Natural transitions
+    letsTalkAboutThat: 'Mek wi tɔk bɔt dat',
+    tellMeMore: 'Tɛl mi mɔ',
+    whatElse: 'Wetin ɛls?',
+    anythingElse: 'Ɛni ɔda tin?',
+
+    // Follow-up questions
+    howLong: 'Aw lɔng?',
+    whenDidItStart: 'Usay i bigin?',
+    isItBetter: 'I dɔn bɛta?',
+    isItWorse: 'I dɔn wɔs?',
+
+    // Conversational connectors
+    okayLetsSee: 'Oke, lɛ wi si',
+    alright: 'Olrayt',
+    iHear: 'A yɛ yu',
+    makeSense: 'Dat mek sɛns',
+};
+
 // Symptom descriptions in Krio
 export const krioSymptoms = {
     fever: 'Fiba / Bɔdi ɔt',

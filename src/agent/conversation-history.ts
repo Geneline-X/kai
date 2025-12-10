@@ -12,7 +12,7 @@ export class ConversationHistory {
     private cache: LRUCache<string, Message[]>;
     private maxMessagesPerChat: number;
 
-    constructor(maxChats: number = 1000, maxMessagesPerChat: number = 10) {
+    constructor(maxChats: number = 1000, maxMessagesPerChat: number = 25) {
         this.maxMessagesPerChat = maxMessagesPerChat;
         this.cache = new LRUCache({
             max: maxChats,
