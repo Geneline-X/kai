@@ -70,10 +70,10 @@ export class VoiceService {
                 responseData: JSON.stringify(response.data),
             });
 
-            // Kay API returns krio_text and english fields
+            // Kay API returns krio_text field - use only Krio transcription, not English translation
+            // The API is good at transcribing Krio but poor at translating, so we send Krio directly to AI
             const transcribedText =
                 response.data?.krio_text ||
-                response.data?.english ||
                 response.data?.text ||
                 response.data?.transcription ||
                 response.data?.result ||

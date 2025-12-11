@@ -6,15 +6,33 @@
 
 // Common greetings and responses
 export const krioGreetings = {
-    hello: 'Kushe',
-    howAreYou: 'Aw di bɔdi?',
-    iAmFine: 'A de ol rayt',
-    thankYou: 'Tenki ya',
-    goodbye: 'A de go',
+    hello: 'Kushe / Kabɔ / Adu',
+    helloResponse: 'Kushe-o',
+    goodMorning: 'Gud mɔnin / Kushe',
+    goodAfternoon: 'Gud aftanun / Afternoon',
+    goodEvening: 'Gud ivnin',
+    goodNight: 'Gud nɛt',
+    howAreYou: 'Aw di bɔdi? / Aw yu du? / How di bɔdi?',
+    howIsYourFamily: 'Aw di fambul?',
+    howDidYouSleep: 'Aw yu slip?',
+    iAmFine: 'A de ol rayt / A wɛl / Di bɔdi fayn',
+    iAmVeryFine: 'A fayn fayn / Di bɔdi fayn',
+    notBad: 'Di bɔdi nɔ bad',
+    thankGod: 'A tehl Gohd tenki / Tɛl Gohd tenki',
+    soSo: 'Smɔl smɔl',
+    thankYou: 'Tenki ya / Tɛnki / Grantɛnki',
+    youreWelcome: 'Nɔ krɛp',
+    goodbye: 'A de go / Wi de go / Gudbay',
+    seeYouAgain: 'Wi go si bak',
     welcome: 'Welkɔm',
-    please: 'Duya',
-    yes: 'Yɛs / Ee',
+    please: 'Duya / Duya, a behg',
+    yes: 'Yɛs / Ee / Na so',
     no: 'Nɔ',
+    iDontKnow: 'A nɔ no / A nɔ sabi',
+    iUnderstand: 'A ɔndastand',
+    doYouUnderstand: 'Yu ɔndastand?',
+    imSorry: 'A sɔri',
+    pleasedToMeetYou: 'A gladi fɔ mit yu',
 };
 
 // Conversational phrases for natural dialogue
@@ -49,6 +67,22 @@ export const krioConversational = {
     alright: 'Olrayt',
     iHear: 'A yɛ yu',
     makeSense: 'Dat mek sɛns',
+
+    // Questions
+    whatIsYourName: 'Wetin na yu nem? / We yu nem?',
+    whereAreYouGoing: 'Usai yu de go?',
+    whereAreYouFrom: 'Usai yu kɔmɔt?',
+    whatAreYouDoing: 'Wetin yu de du?',
+    howMuch: 'Ɔmɔs fɔ am?',
+
+    // Useful expressions
+    beCareful: 'Tek tɛm',
+    godWilling: 'Bay Gohd (in) pawa',
+    leaveMeAlone: 'Lef mi! / Kɔmɔt!',
+    help: 'Ɛp! / Ɛp mi! / Una kam o!',
+    goodLuck: 'Gud lɔk',
+    enjoyYourMeal: 'Ɛnjɔy yu it!',
+    haveNiceTrip: 'Una gɛt gud trip!',
 };
 
 // Symptom descriptions in Krio
@@ -69,6 +103,23 @@ export const krioSymptoms = {
     swelling: 'Swɛl ɔp / Swel up / I swell',
     bleeding: 'Blɔd de kɔmɔt / Blood de komot',
     convulsions: 'Fit de kech am / Fit catch am',
+    nausea: 'A de fil fɔ vɔmit / Vomisman',
+    tired: 'A tayad / A tiyad',
+    backPain: 'Bak de pɛn / Back de pen',
+    jointPain: 'Jɔynt de pɛn / Joint de pen',
+    muscleAche: 'Mɔsl de pɛn / Muscle ache',
+    soreThroat: 'Trɔt de pɛn / Throat sore',
+    runnyNose: 'Nos de rɔn / Nose de run',
+    eyePain: 'Ay de pɛn / Eye de pen',
+    earPain: 'Yɛs de pɛn / Ear de pen',
+    toothache: 'Tit de pɛn / Maldan / Tooth ache',
+    lossOfAppetite: 'A nɔ gɛt apeti / No want it',
+    cannotSleep: 'A nɔ de slip / Cannot sleep',
+    nightSweats: 'A de swɛt na nɛt / Night sweat',
+    shivering: 'A de shɛk / Shivers / Kol de kech mi',
+    numbness: 'I nɔm / Numb / No de fil',
+    burningFeeling: 'I de bɔn / Burning feeling',
+    itching: 'Skin de itch / De scratch',
 };
 
 // Common symptom variations (for fuzzy matching)
@@ -103,6 +154,86 @@ export const krioSymptomVariations: Record<string, string[]> = {
         'bodi de pen', 'bɔdi de pɛn', 'body pain', 'body ache',
         'a get bodi pen', 'mi bodi de pen', 'aching', 'all over pain'
     ],
+    weakness: [
+        'a fil wik', 'a weak', 'no get pawa', 'nɔ gɛt pawa',
+        'weak weak', 'no strength', 'tired', 'tayad', 'tiyad'
+    ],
+    dizziness: [
+        'ed de ton', 'ɛd de tɔn', 'a de dizi', 'dizzy', 'head spinning',
+        'mi ed de ton', 'head turning'
+    ],
+    chestPain: [
+        'ches de pen', 'chest de pen', 'ches de pɛn', 'chest pain',
+        'a get ches pen', 'mi ches de pen'
+    ],
+    difficultyBreathing: [
+        'a no de brid fayn', 'no de brid fine', 'cannot breathe',
+        'hard to breathe', 'breathing hard', 'a de gasp'
+    ],
+    coldSymptoms: [
+        'kol kech mi', 'kold kech mi', 'cold catch me', 'cold',
+        'a get kol', 'a get cold'
+    ],
+};
+
+// Body parts in Krio
+export const krioBodyParts = {
+    head: 'Ɛd / Head',
+    eye: 'Ay / Eye',
+    ear: 'Yɛs / Ear',
+    nose: 'Nos / Nose',
+    mouth: 'Mɔt / Mouth',
+    tooth: 'Tit / Tooth',
+    throat: 'Trɔt / Throat',
+    neck: 'Nɛk / Neck',
+    chest: 'Ches / Chest',
+    stomach: 'Bɛlɛ / Belly',
+    back: 'Bak / Back',
+    arm: 'An / Arm',
+    hand: 'An / Hand',
+    leg: 'Fut / Leg',
+    foot: 'Fut / Foot',
+    skin: 'Skin',
+    body: 'Bɔdi / Body',
+    heart: 'At / Heart',
+    blood: 'Blɔd / Blood',
+};
+
+// Time expressions in Krio
+export const krioTime = {
+    now: 'Naw / Naw naw',
+    today: 'Tudɛ / Tide',
+    yesterday: 'Yɛstɛdɛ',
+    tomorrow: 'Tumara',
+    morning: 'Mɔnin',
+    afternoon: 'Aftanun',
+    evening: 'Ivnin',
+    night: 'Nɛt',
+    day: 'Die',
+    week: 'Wik',
+    month: 'Mɔnt',
+    year: 'Yia',
+    always: 'Ɔltɛm',
+    never: 'Nɛva',
+    sometimes: 'Sɔntɛm',
+    often: 'Plɛnti tɛm',
+};
+
+// Family and social terms
+export const krioFamily = {
+    family: 'Fambul',
+    mother: 'Mama / Mami',
+    father: 'Papa / Dadi',
+    child: 'Pikin',
+    children: 'Pikin dɛm',
+    baby: 'Bebi',
+    woman: 'Uman',
+    man: 'Man',
+    boy: 'Bɔy',
+    girl: 'Titi / Gyal',
+    friend: 'Padi / Frɛn',
+    people: 'Pipul dɛm',
+    person: 'Pɔsin',
 };
 
 // Urgency indicators in Krio
@@ -135,7 +266,7 @@ export const krioHomeCare = {
 
 // Common disease names in Krio
 export const krioDiseases = {
-    malaria: 'Malɛria / Fiba',
+    malaria: 'Malɛria / Fiba / Palidis',
     cholera: 'Kɔlɛra',
     typhoid: 'Tayfɔyd',
     ebola: 'Ibola',
@@ -147,6 +278,47 @@ export const krioDiseases = {
     tuberculosis: 'TB / Jɔs',
     hiv: 'HIV/AIDS',
     yellowFever: 'Yɛlo Fiba',
+    anemia: 'Anemi',
+    appendicitis: 'Apenndisit',
+    arthritis: 'Atrit',
+    asthma: 'Asma / Opresyon',
+    diabetes: 'Sik / Dyabɛt',
+    hypertension: 'Ay blɔd / High blood',
+    hypotension: 'Lo blɔd / Low blood',
+    hernia: 'Èni',
+    jaundice: 'Lajònis / Yɛlo ay',
+};
+
+// Medical terms and healthcare
+export const krioMedical = {
+    doctor: 'Dɔktɔ',
+    nurse: 'Nɔs',
+    healthWorker: 'Ɛlt wɔka',
+    patient: 'Peshɛnt / Sik pɔsin',
+    hospital: 'Ɔspitul / Hospital',
+    clinic: 'Klinik',
+    pharmacy: 'Famasi',
+    medicine: 'Mɛrɛsin',
+    injection: 'Injɛkshɔn / Nidl',
+    vaccine: 'Vaksin',
+    treatment: 'Tritmɛnt',
+    ambulance: 'Ambulans',
+    emergency: 'Emɛjɛnsi',
+    syringe: 'Sirinj',
+    bandage: 'Bandej',
+    thermometer: 'Tɛmɔmɔta',
+    faceMask: 'Fes mask',
+    glasses: 'Glasis',
+    wound: 'Wund',
+    injury: 'Injuri',
+    sick: 'Sik',
+    health: 'Wɛlbɔdi',
+    pain: 'Pɛn',
+    iodine: 'Iodin',
+    coughSyrup: 'Kɔf srɔp',
+    stomachMedicine: 'Stɔmɔk mɛrɛsin',
+    coldMedicine: 'Kol mɛrɛsin',
+    dentist: 'Dɛntis / Tit dɔktɔ',
 };
 
 // Health alert templates in Krio
@@ -181,13 +353,21 @@ export const krioResponses = {
 
 // Duration terms in Krio
 export const krioDuration = {
-    today: 'tudɛ',
+    today: 'tudɛ / tide',
     yesterday: 'yɛstɛdɛ',
+    tomorrow: 'tumara',
     fewDays: 'smɔl die',
+    oneDay: 'wan die',
+    twoDays: 'tu die',
+    threeDays: 'tri die',
     oneWeek: 'wan wik',
     twoWeeks: 'tu wik',
     oneMonth: 'wan mɔnt',
     longTime: 'lɔng tɛm',
+    justNow: 'jɔs naw',
+    recently: 'jɔs naw',
+    since: 'frɔm',
+    for: 'fɔ',
 };
 
 // Severity terms in Krio
@@ -210,14 +390,16 @@ export function detectKrio(message: string): boolean {
 
     // Common Krio words and patterns
     const krioIndicators = [
-        'kushe', 'aw di bodi', 'tenki', 'duya', 'wetin',
+        'kushe', 'kabo', 'aw di bodi', 'tenki', 'duya', 'wetin',
         'de wori', 'de pen', 'na ospitul', 'go ospitul',
         'mi bodi', 'fiba', 'a de', 'yu de', 'wi de',
-        'na ya', 'naw naw', 'lef am', 'noh', 'dɛn',
+        'na ya', 'naw naw', 'lef am', 'noh', 'dɛn', 'dem',
         'pikin', 'uman', 'opin', 'sik', 'bad bad',
         'smol smol', 'plenty', 'komot', 'go kam',
         'di bodi', 'ed de', 'bele', 'kof', 'wata',
         'lek', 'mek', 'foh', 'fo', 'ya', 'dey',
+        'fambul', 'usai', 'aw yu', 'a no', 'ondastand',
+        'gladi', 'sabi', 'kech', 'gud', 'fayn',
     ];
 
     // Check for Krio indicators

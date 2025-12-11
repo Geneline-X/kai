@@ -168,9 +168,13 @@ export class MessageHandler {
 
             // Get contact info (with fallback for WhatsApp Web API changes)
             let userName: string | undefined;
+            let phone: string;
             try {
                 const contact = await message.getContact();
                 userName = contact.pushname || contact.name || undefined;
+
+                // Get actual phone number from contact, fallback to chatId if not available
+                phone = contact.number || chatId.split('@')[0];
             } catch (error) {
                 // Fallback: Try to get from message metadata
                 logger.debug('Could not fetch contact info, using fallback', {
@@ -179,17 +183,16 @@ export class MessageHandler {
                     error: (error as Error).message
                 });
                 userName = undefined;
+                phone = chatId.split('@')[0];
             }
 
             logger.info('Handling message', {
                 from: chatId,
+                phone,
                 hasText: !!messageText,
                 isVoiceMessage,
                 userName,
             });
-
-            // Extract phone number from chatId
-            const phone = chatId.split('@')[0];
 
             // IMPORTANT: Sync user to database FIRST and WAIT for it to complete
             // This ensures user exists before we try to store messages
