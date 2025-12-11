@@ -357,22 +357,69 @@ export class MessageWorker {
                 try {
                     const { forwardToHealthWorkers, getUserInfoForEscalation } = await import('../utils/escalation-manager');
 
-                    // Get actual phone from chatId
-                    // chatId format: "232XXXXXXX@c.us" or "XXXXXXXXX@lid"
-                    const rawPhone = chatId.split('@')[0];
-
-                    // Try to get user info from database
+                    // Get user info from database
                     const userInfo = await getUserInfoForEscalation(userId);
 
-                    // Use the phone from chatId (strip of non-digits) or from database
-                    const actualPhone = userInfo?.phone || rawPhone;
+                    if (!userInfo) {
+                        logger.error('Cannot forward escalation: user info not found in database', { userId });
+                        return;
+                    }
+
+                    // Retrieve past 10 messages from database for conversation summary
+                    let conversationSummary = 'Escalation triggered by agent';
+                    try {
+                        const { data: messages } = await supabase
+                            .from('messages')
+                            .select('content, sender, created_at')
+                            .eq('user_id', userId)
+                            .order('created_at', { ascending: false })
+                            .limit(10);
+
+                        if (messages && messages.length > 0) {
+                            // Build conversation text for AI summarization
+                            const conversationText = messages.reverse().map(msg => {
+                                const speaker = msg.sender === 'user' ? 'User' : 'Bot';
+                                return `${speaker}: ${msg.content}`;
+                            }).join('\n');
+
+                            // Use AI to generate a natural language summary
+                            try {
+                                const summaryPrompt = `Summarize the following conversation between a user and a health bot in 2-3 concise sentences. Focus on the user's main health concern and any key symptoms or requests mentioned:\n\n${conversationText}`;
+
+                                const aiSummary = await this.genelineClient.sendMessage({
+                                    chatbotId: config.geneline.chatbotId,
+                                    email: `summarizer@system.local`,
+                                    message: summaryPrompt,
+                                    metadata: {
+                                        whatsappChatId: chatId,
+                                        messageId: messageId,
+                                        isGroup: false,
+                                        purpose: 'escalation_summary'
+                                    }
+                                });
+
+                                conversationSummary = aiSummary.trim();
+                            } catch (aiError) {
+                                logger.error('Failed to generate AI summary, using formatted list', aiError as Error);
+                                // Fallback to simple formatted list
+                                conversationSummary = messages.reverse().map((msg, idx) => {
+                                    const speaker = msg.sender === 'user' ? 'User' : 'Bot';
+                                    const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+                                    return `${idx + 1}. ${speaker}: ${preview}`;
+                                }).join('\n');
+                            }
+                        }
+                    } catch (summaryError) {
+                        logger.error('Failed to retrieve conversation history for summary', summaryError as Error);
+                        // Continue with default summary
+                    }
 
                     const report = {
                         userId,
-                        userPhone: actualPhone,
-                        userName: userInfo?.name || 'Unknown User',
+                        userPhone: userInfo.phone,
+                        userName: userInfo.name || 'Unknown User',
                         reason: agentResponse.escalationReason || 'Agent detected need for human assistance',
-                        conversationSummary: 'Escalation triggered by agent',
+                        conversationSummary,
                         latestMessage: messageText,
                         timestamp: new Date().toISOString(),
                         urgencyLevel: (agentResponse.confidence !== undefined && agentResponse.confidence < 0.3 ? 'urgent' : 'normal') as 'emergency' | 'urgent' | 'normal'
