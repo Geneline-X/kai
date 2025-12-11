@@ -165,7 +165,16 @@ export class MessageWorker {
         }
 
         // Send response (voice or text based on original message type)
-        return this.sendResponseWithVoice(chatId, messageId, agentResponse.response, isVoiceMessage);
+        await this.sendResponseWithVoice(chatId, messageId, agentResponse.response, isVoiceMessage);
+
+        // IMPORTANT: Forward pending escalation to health workers if one was created by the escalation tool
+        if (userId) {
+            try {
+                await this.forwardPendingEscalationToHealthWorkers(userId, chatId, messageId);
+            } catch (error) {
+                logger.error('Failed to forward pending escalation', error as Error);
+            }
+        }
     }
 
     /**
@@ -277,6 +286,50 @@ export class MessageWorker {
     setFallbackSender(sender: (chatId: string) => Promise<void>): void {
         this.sendFallbackMessage = sender;
     }
+
+    /**
+     * Forward pending escalation to health workers if one exists
+     * This is called after the agent response to check if the escalation tool was used
+     */
+    private async forwardPendingEscalationToHealthWorkers(userId: string, chatId: string, messageId: string): Promise<void> {
+        try {
+            const { getPendingEscalation, clearPendingEscalation } = await import('../agent/tools/escalation-tool');
+            const { forwardToHealthWorkers } = await import('../utils/escalation-manager');
+
+            const pending = getPendingEscalation(userId);
+            if (!pending) {
+                // No pending escalation, nothing to do
+                return;
+            }
+
+            logger.info('Forwarding pending escalation to health workers', {
+                userId,
+                urgencyLevel: pending.report.urgencyLevel
+            });
+
+            // Create a send function that uses this worker's sendResponse
+            const sendMessageFn = async (targetChatId: string, message: string): Promise<void> => {
+                await this.sendResponse(targetChatId, messageId, message);
+            };
+
+            // Forward to health workers
+            const result = await forwardToHealthWorkers(pending.report, sendMessageFn);
+
+            if (result.success) {
+                logger.info('Escalation forwarded successfully to health workers', {
+                    userId,
+                    notifiedContacts: result.notifiedContacts
+                });
+                clearPendingEscalation(userId);
+            } else {
+                logger.warn('Failed to forward escalation - no health workers notified', { userId });
+            }
+
+        } catch (error) {
+            logger.error('Error forwarding pending escalation to health workers', error as Error);
+        }
+    }
+
 
     /**
      * Handle escalation when agent determines human intervention is needed
