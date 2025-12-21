@@ -1,6 +1,33 @@
 import winston from 'winston';
 import { config } from '../config/env';
 
+/**
+ * Safe JSON serializer that handles circular references and Error objects
+ */
+function safeJsonStringify(obj: any): string {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+        // Handle Error objects specially
+        if (value instanceof Error) {
+            return {
+                message: value.message,
+                stack: value.stack,
+                name: value.name,
+            };
+        }
+
+        // Handle circular references
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+                return '[Circular]';
+            }
+            seen.add(value);
+        }
+
+        return value;
+    }, 2);
+}
+
 const logFormat = winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
@@ -12,7 +39,7 @@ const logFormat = winston.format.combine(
             winston.format.printf(({ timestamp, level, message, ...meta }) => {
                 let msg = `${timestamp} [${level}]: ${message}`;
                 if (Object.keys(meta).length > 0) {
-                    msg += ` ${JSON.stringify(meta, null, 2)}`;
+                    msg += ` ${safeJsonStringify(meta)}`;
                 }
                 return msg;
             })

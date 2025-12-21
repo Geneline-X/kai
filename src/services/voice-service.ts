@@ -103,9 +103,10 @@ export class VoiceService {
             }
         } catch (error: any) {
             const errorMessage = error.response?.data?.error || error.message;
-            logger.error('Transcription failed', error, {
+            logger.error('Transcription failed', {
+                error: errorMessage,
+                stack: error.stack,
                 status: error.response?.status,
-                errorMessage,
                 responseData: error.response?.data ? JSON.stringify(error.response.data) : 'N/A',
             });
 
@@ -164,9 +165,10 @@ export class VoiceService {
             };
         } catch (error: any) {
             const errorMessage = error.response?.data?.error || error.message;
-            logger.error('TTS synthesis failed', error, {
+            logger.error('TTS synthesis failed', {
+                error: errorMessage,
+                stack: error.stack,
                 status: error.response?.status,
-                errorMessage,
             });
 
             return {

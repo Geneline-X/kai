@@ -4,6 +4,7 @@ import qrCodeTerminal from 'qrcode-terminal';
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { EventEmitter } from 'events';
@@ -26,6 +27,33 @@ export class WhatsAppClient extends EventEmitter {
     constructor() {
         super();
 
+        // Detect Chrome/Chromium path based on environment
+        const getChromePath = (): string => {
+            // Use environment variable if set (highest priority)
+            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+                return process.env.PUPPETEER_EXECUTABLE_PATH;
+            }
+
+            // Detect based on OS
+            const platform = os.platform();
+            if (platform === 'linux') {
+                // Linux/Docker (Render, Railway, etc.)
+                return '/usr/bin/chromium';
+            } else if (platform === 'darwin') {
+                // macOS
+                return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+            } else if (platform === 'win32') {
+                // Windows
+                return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+            }
+
+            // Fallback
+            return '/usr/bin/chromium';
+        };
+
+        const chromePath = getChromePath();
+        logger.info('Chrome executable path', { path: chromePath, platform: os.platform() });
+
         this.client = new Client({
             authStrategy: new LocalAuth({
                 clientId: config.whatsapp.clientId,
@@ -35,7 +63,7 @@ export class WhatsAppClient extends EventEmitter {
             takeoverTimeoutMs: 0,
             puppeteer: {
                 headless: true,
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
+                executablePath: chromePath,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -59,11 +87,10 @@ export class WhatsAppClient extends EventEmitter {
                     '--metrics-recording-only',
                     '--no-first-run',
                     '--no-zygote',
-                    '--single-process',
                     '--mute-audio',
                     '--ignore-certificate-errors',
                     '--ignore-ssl-errors',
-                    '--js-flags=--max-old-space-size=256',
+                    '--js-flags=--max-old-space-size=512',
                 ],
                 timeout: 120000, // 120 second timeout
             },
@@ -172,10 +199,27 @@ export class WhatsAppClient extends EventEmitter {
             // Kill any zombie Chromium processes to prevent profile lock
             try {
                 logger.info('Cleaning up any zombie Chromium processes...');
-                execSync('pkill -f chromium || true', { stdio: 'ignore' });
-                execSync('pkill -f chrome || true', { stdio: 'ignore' });
+                const platform = os.platform();
+
+                if (platform === 'linux') {
+                    // Linux: use pkill
+                    execSync('pkill -f chromium || true', { stdio: 'ignore' });
+                    execSync('pkill -f chrome || true', { stdio: 'ignore' });
+                } else if (platform === 'darwin') {
+                    // macOS: use pkill or killall
+                    try {
+                        execSync('pkill -f chromium || true', { stdio: 'ignore' });
+                        execSync('pkill -f "Google Chrome" || true', { stdio: 'ignore' });
+                    } catch {
+                        execSync('killall "Google Chrome" 2>/dev/null || true', { stdio: 'ignore' });
+                    }
+                } else if (platform === 'win32') {
+                    // Windows: use taskkill
+                    execSync('taskkill /F /IM chrome.exe /T 2>nul || exit 0', { stdio: 'ignore' });
+                }
             } catch (e) {
-                // Ignore errors - pkill may not find any processes
+                // Ignore errors - process cleanup is best-effort
+                logger.debug('Process cleanup completed (some commands may have failed)');
             }
 
             // Delete Chromium lock files to prevent profile lock error
@@ -205,11 +249,6 @@ export class WhatsAppClient extends EventEmitter {
                 };
                 cleanupLockFiles(sessionDir);
             }
-
-            // Set up error handler for uncaught Puppeteer errors
-            this.client.pupPage?.on('error', (error) => {
-                logger.warn('Puppeteer page error (non-fatal)', { error: error.message });
-            });
 
             await this.client.initialize();
         } catch (error: any) {

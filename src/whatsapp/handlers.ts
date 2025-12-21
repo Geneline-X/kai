@@ -95,7 +95,10 @@ export class MessageHandler {
                     return { text: undefined, isVoiceMessage: true, audioBuffer };
                 }
             } catch (error) {
-                logger.error('Error processing voice message', error as Error);
+                logger.error('Error processing voice message', {
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined,
+                });
                 return { text: undefined, isVoiceMessage: true };
             }
         }
