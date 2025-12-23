@@ -179,6 +179,81 @@ export class VoiceService {
     }
 
     /**
+     * Translate Krio text to English using Kay API
+     * @param krioText - The Krio text to translate
+     * @returns Translation result with success status and translated text
+     */
+    async translateKrioToEnglish(
+        krioText: string
+    ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
+        try {
+            logger.info('Translating Krio to English', {
+                textLength: krioText.length,
+                preview: krioText.substring(0, 100),
+            });
+
+            const response = await axios.post(
+                `${this.apiHost}/api/v1/translate`,
+                {
+                    text: krioText,
+                    source_language: 'krio',
+                    target_language: 'english',
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': this.apiKey,
+                    },
+                    timeout: 30000, // 30 second timeout for translation
+                }
+            );
+
+            // Extract translated text from response
+            const translatedText =
+                response.data?.translated_text ||
+                response.data?.translation ||
+                response.data?.english_text ||
+                response.data?.text ||
+                (typeof response.data === 'string' ? response.data : '');
+
+            if (translatedText && translatedText.trim().length > 0) {
+                logger.info('Translation completed', {
+                    success: true,
+                    originalLength: krioText.length,
+                    translatedLength: translatedText.length,
+                    preview: translatedText.substring(0, 100),
+                });
+
+                return {
+                    success: true,
+                    translatedText,
+                };
+            } else {
+                logger.warn('Translation returned empty text', {
+                    responseData: JSON.stringify(response.data),
+                });
+                return {
+                    success: false,
+                    error: 'Translation returned empty text',
+                };
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.error || error.message;
+            logger.error('Translation failed', {
+                error: errorMessage,
+                stack: error.stack,
+                status: error.response?.status,
+                responseData: error.response?.data ? JSON.stringify(error.response.data) : 'N/A',
+            });
+
+            return {
+                success: false,
+                error: errorMessage,
+            };
+        }
+    }
+
+    /**
      * Check if the voice services are healthy
      */
     async checkHealth(): Promise<{ transcribe: boolean; tts: boolean }> {

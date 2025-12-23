@@ -263,14 +263,14 @@ const symptomMapping: Record<string, string> = {
 /**
  * Find the best matching symptom from user input
  */
-function findSymptom(query: string): string | null {
+async function findSymptom(query: string): Promise<string | null> {
     const lowerQuery = query.toLowerCase();
 
     // First, try fuzzy Krio matching
-    const { extractKrioSymptoms } = require('../../utils/krio-phrases');
+    const { extractKrioSymptoms, hasGoodKrioMatches, detectKrio } = require('../../utils/krio-phrases');
     const krioMatches = extractKrioSymptoms(query);
 
-    if (krioMatches.length > 0) {
+    if (krioMatches.length > 0 && hasGoodKrioMatches(krioMatches)) {
         // Use the best match (highest confidence)
         const bestMatch = krioMatches.sort((a: { symptom: string; confidence: number }, b: { symptom: string; confidence: number }) => b.confidence - a.confidence)[0];
 
@@ -294,6 +294,65 @@ function findSymptom(query: string): string | null {
                 mappedTo: dbKey,
             });
             return dbKey;
+        }
+    }
+
+    // If Krio detected but no good fuzzy matches, try translation fallback
+    if (detectKrio(query) && (!krioMatches.length || !hasGoodKrioMatches(krioMatches))) {
+        logger.info('Krio detected but no good fuzzy matches, attempting translation', {
+            input: query,
+            fuzzyMatchCount: krioMatches.length,
+        });
+
+        try {
+            const { getVoiceService } = await import('../../services/voice-service');
+            const voiceService = getVoiceService();
+            const translationResult = await voiceService.translateKrioToEnglish(query);
+
+            if (translationResult.success && translationResult.translatedText) {
+                logger.info('Krio translation successful, retrying symptom detection', {
+                    original: query,
+                    translated: translationResult.translatedText,
+                });
+
+                // Retry symptom detection with translated English text
+                const translatedQuery = translationResult.translatedText.toLowerCase();
+
+                // Try exact matches from symptom mapping
+                for (const [key, value] of Object.entries(symptomMapping)) {
+                    if (translatedQuery.includes(key)) {
+                        logger.info('Symptom found via translation fallback', {
+                            original: query,
+                            translated: translationResult.translatedText,
+                            symptom: value,
+                        });
+                        return value;
+                    }
+                }
+
+                // Try database keys directly
+                for (const key of Object.keys(symptomDatabase)) {
+                    if (translatedQuery.includes(key.replace(/_/g, ' '))) {
+                        logger.info('Symptom found via translation fallback (database key)', {
+                            original: query,
+                            translated: translationResult.translatedText,
+                            symptom: key,
+                        });
+                        return key;
+                    }
+                }
+
+                logger.info('Translation successful but no symptom match found', {
+                    original: query,
+                    translated: translationResult.translatedText,
+                });
+            } else {
+                logger.warn('Translation fallback failed', {
+                    error: translationResult.error,
+                });
+            }
+        } catch (error) {
+            logger.error('Error during translation fallback', error as Error);
         }
     }
 
@@ -347,8 +406,8 @@ export const createSymptomTriageTool = (): Tool => {
 
                 logger.info('Symptom triage requested', { symptoms, duration, severity });
 
-                // Find matching symptom
-                const symptomKey = findSymptom(symptoms);
+                // Find matching symptom (now async due to translation fallback)
+                const symptomKey = await findSymptom(symptoms);
 
                 if (!symptomKey || !symptomDatabase[symptomKey]) {
                     // General guidance if symptom not found

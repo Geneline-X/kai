@@ -545,3 +545,16 @@ export function extractKrioSymptoms(message: string): Array<{ symptom: string; c
 
     return detectedSymptoms;
 }
+
+/**
+ * Check if Krio fuzzy matching found good matches
+ * @param matches - Array of symptom matches from extractKrioSymptoms
+ * @param confidenceThreshold - Minimum confidence to consider a good match (default 0.7)
+ * @returns true if good matches found, false otherwise
+ */
+export function hasGoodKrioMatches(
+    matches: Array<{ symptom: string; confidence: number }>,
+    confidenceThreshold: number = 0.7
+): boolean {
+    return matches.length > 0 && matches.some(match => match.confidence >= confidenceThreshold);
+}

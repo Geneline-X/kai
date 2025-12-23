@@ -124,6 +124,61 @@ export class MessageWorker {
     private async processWithAgent(chatId: string, messageId: string, messageText: string, isVoiceMessage?: boolean): Promise<void> {
         logger.info('Processing message with agent', { chatId, messageId, isVoiceMessage });
 
+        // Apply Krio translation fallback if needed
+        let processedText = messageText;
+        const { detectKrio, extractKrioSymptoms, hasGoodKrioMatches } = await import('../utils/krio-phrases');
+
+        if (detectKrio(messageText)) {
+            logger.info('Krio language detected in message', { chatId, messageId });
+
+            // Try fuzzy matching first
+            const krioMatches = extractKrioSymptoms(messageText);
+
+            if (!hasGoodKrioMatches(krioMatches)) {
+                logger.info('No good Krio fuzzy matches, attempting translation fallback', {
+                    chatId,
+                    messageId,
+                    fuzzyMatchCount: krioMatches.length,
+                });
+
+                try {
+                    const { getVoiceService } = await import('../services/voice-service');
+                    const voiceService = getVoiceService();
+                    const translationResult = await voiceService.translateKrioToEnglish(messageText);
+
+                    if (translationResult.success && translationResult.translatedText) {
+                        logger.info('Krio translation successful, using translated text for processing', {
+                            chatId,
+                            messageId,
+                            originalText: messageText.substring(0, 100),
+                            translatedText: translationResult.translatedText.substring(0, 100),
+                        });
+
+                        // Use translated text for agent processing
+                        processedText = translationResult.translatedText;
+                    } else {
+                        logger.warn('Krio translation failed, using original text', {
+                            chatId,
+                            messageId,
+                            error: translationResult.error,
+                        });
+                    }
+                } catch (error) {
+                    logger.error('Error during Krio translation fallback', error as Error, {
+                        chatId,
+                        messageId,
+                    });
+                    // Continue with original text
+                }
+            } else {
+                logger.info('Good Krio fuzzy matches found, skipping translation', {
+                    chatId,
+                    messageId,
+                    matchCount: krioMatches.length,
+                });
+            }
+        }
+
         // Get user role for role-based prompting
         const phone = chatId.split('@')[0];
         const { getUserRoleByPhone } = await import('../utils/role-manager');
@@ -133,19 +188,20 @@ export class MessageWorker {
         const { getUserIdByPhone } = await import('../utils/database-sync');
         const userId = await getUserIdByPhone(phone);
 
-        // Detect and track intent
+        // Detect and track intent (use processed/translated text)
         const { detectAndTrackIntent } = await import('../utils/intent-detector');
-        const intentResult = await detectAndTrackIntent(messageText, messageId);
+        const intentResult = await detectAndTrackIntent(processedText, messageId);
 
         logger.debug('User context retrieved for agent processing', {
             chatId,
             userRole,
             userId,
             intent: intentResult.intent,
-            intentConfidence: intentResult.confidence
+            intentConfidence: intentResult.confidence,
+            textWasTranslated: processedText !== messageText,
         });
 
-        const agentResponse = await this.agentLoop!.run(chatId, messageText, userRole, userId || undefined, phone);
+        const agentResponse = await this.agentLoop!.run(chatId, processedText, userRole, userId || undefined, phone);
 
         logger.info('Agent processing completed', {
             chatId,
