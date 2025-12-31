@@ -129,16 +129,17 @@ export class MessageWorker {
         const { detectKrio, extractKrioSymptoms, hasGoodKrioMatches } = await import('../utils/krio-phrases');
 
         if (detectKrio(messageText)) {
-            logger.info('Krio language detected in message', { chatId, messageId });
+            logger.info('Krio language detected in message', { chatId, messageId, isVoiceMessage });
 
-            // Try fuzzy matching first
-            const krioMatches = extractKrioSymptoms(messageText);
+            // For voice messages, always translate if configured (skip fuzzy matching)
+            // Kay's translation is more accurate than fuzzy matching for voice transcriptions
+            const shouldAlwaysTranslateVoice = config.kay.alwaysTranslateVoice && isVoiceMessage;
 
-            if (!hasGoodKrioMatches(krioMatches)) {
-                logger.info('No good Krio fuzzy matches, attempting translation fallback', {
+            if (shouldAlwaysTranslateVoice) {
+                logger.info('Voice message detected with Krio - attempting translation', {
                     chatId,
                     messageId,
-                    fuzzyMatchCount: krioMatches.length,
+                    textPreview: messageText.substring(0, 100),
                 });
 
                 try {
@@ -147,7 +148,7 @@ export class MessageWorker {
                     const translationResult = await voiceService.translateKrioToEnglish(messageText);
 
                     if (translationResult.success && translationResult.translatedText) {
-                        logger.info('Krio translation successful, using translated text for processing', {
+                        logger.info('Voice message Krio translation successful', {
                             chatId,
                             messageId,
                             originalText: messageText.substring(0, 100),
@@ -157,25 +158,66 @@ export class MessageWorker {
                         // Use translated text for agent processing
                         processedText = translationResult.translatedText;
                     } else {
-                        logger.warn('Krio translation failed, using original text', {
+                        logger.warn('Voice message Krio translation failed, using original text', {
                             chatId,
                             messageId,
                             error: translationResult.error,
                         });
                     }
                 } catch (error) {
-                    logger.error('Error during Krio translation fallback', error as Error, {
+                    logger.error('Error during voice message Krio translation', error as Error, {
                         chatId,
                         messageId,
                     });
                     // Continue with original text
                 }
             } else {
-                logger.info('Good Krio fuzzy matches found, skipping translation', {
-                    chatId,
-                    messageId,
-                    matchCount: krioMatches.length,
-                });
+                // For text messages or when voice translation is disabled, use fuzzy matching first
+                const krioMatches = extractKrioSymptoms(messageText);
+
+                if (!hasGoodKrioMatches(krioMatches)) {
+                    logger.info('No good Krio fuzzy matches, attempting translation fallback', {
+                        chatId,
+                        messageId,
+                        fuzzyMatchCount: krioMatches.length,
+                    });
+
+                    try {
+                        const { getVoiceService } = await import('../services/voice-service');
+                        const voiceService = getVoiceService();
+                        const translationResult = await voiceService.translateKrioToEnglish(messageText);
+
+                        if (translationResult.success && translationResult.translatedText) {
+                            logger.info('Krio translation successful, using translated text for processing', {
+                                chatId,
+                                messageId,
+                                originalText: messageText.substring(0, 100),
+                                translatedText: translationResult.translatedText.substring(0, 100),
+                            });
+
+                            // Use translated text for agent processing
+                            processedText = translationResult.translatedText;
+                        } else {
+                            logger.warn('Krio translation failed, using original text', {
+                                chatId,
+                                messageId,
+                                error: translationResult.error,
+                            });
+                        }
+                    } catch (error) {
+                        logger.error('Error during Krio translation fallback', error as Error, {
+                            chatId,
+                            messageId,
+                        });
+                        // Continue with original text
+                    }
+                } else {
+                    logger.info('Good Krio fuzzy matches found, skipping translation', {
+                        chatId,
+                        messageId,
+                        matchCount: krioMatches.length,
+                    });
+                }
             }
         }
 

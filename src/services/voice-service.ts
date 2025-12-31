@@ -196,8 +196,8 @@ export class VoiceService {
                 `${this.apiHost}/api/v1/translate`,
                 {
                     text: krioText,
-                    source_language: 'krio',
-                    target_language: 'english',
+                    source_lang: 'kri',
+                    target_lang: 'en',
                 },
                 {
                     headers: {
