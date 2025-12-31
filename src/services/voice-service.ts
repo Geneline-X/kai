@@ -68,18 +68,36 @@ export class VoiceService {
             logger.info('Transcription API response', {
                 status: response.status,
                 responseData: JSON.stringify(response.data),
+                responseKeys: response.data ? Object.keys(response.data) : [],
             });
 
-            // Kay API returns krio_text field - use only Krio transcription, not English translation
-            // The API is good at transcribing Krio but poor at translating, so we send Krio directly to AI
-            const transcribedText =
-                response.data?.krio_text ||
-                response.data?.text ||
-                response.data?.transcription ||
-                response.data?.result ||
-                response.data?.transcript ||
-                response.data?.output ||
-                (typeof response.data === 'string' ? response.data : '');
+            // Kay API can return different response structures
+            // Try multiple field names to extract the transcribed text
+            let transcribedText = '';
+
+            if (response.data) {
+                // Try different possible field names
+                transcribedText =
+                    response.data.krio_text ||
+                    response.data.text ||
+                    response.data.transcription ||
+                    response.data.result ||
+                    response.data.transcript ||
+                    response.data.output ||
+                    response.data.kri_text ||  // Alternative spelling
+                    response.data.transcribed_text ||
+                    '';
+
+                // If response.data is a string itself
+                if (!transcribedText && typeof response.data === 'string') {
+                    transcribedText = response.data;
+                }
+
+                // If response.data has a nested structure
+                if (!transcribedText && response.data.data) {
+                    transcribedText = response.data.data.text || response.data.data.krio_text || '';
+                }
+            }
 
             if (transcribedText && transcribedText.trim().length > 0) {
                 logger.info('Transcription completed', {
@@ -90,15 +108,17 @@ export class VoiceService {
 
                 return {
                     success: true,
-                    text: transcribedText,
+                    text: transcribedText.trim(),
                 };
             } else {
                 logger.warn('Transcription returned empty text', {
                     responseData: JSON.stringify(response.data),
+                    responseKeys: response.data ? Object.keys(response.data) : [],
+                    checkedFields: ['krio_text', 'text', 'transcription', 'result', 'transcript', 'output'],
                 });
                 return {
                     success: false,
-                    error: 'Transcription returned empty text',
+                    error: 'Transcription returned empty text. Response: ' + JSON.stringify(response.data),
                 };
             }
         } catch (error: any) {

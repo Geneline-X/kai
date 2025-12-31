@@ -61,25 +61,44 @@ export class MessageHandler {
                 // Download the voice message media
                 const media = await message.downloadMedia();
                 if (!media) {
-                    logger.warn('Could not download voice message media');
+                    logger.warn('Could not download voice message media', {
+                        messageId: message.id._serialized,
+                    });
                     return { text: undefined, isVoiceMessage: true };
                 }
 
                 const audioBuffer = Buffer.from(media.data, 'base64');
+
+                // Determine file extension from MIME type
+                const mimeToExt: { [key: string]: string } = {
+                    'audio/ogg': 'ogg',
+                    'audio/opus': 'opus',
+                    'audio/mpeg': 'mp3',
+                    'audio/mp4': 'm4a',
+                    'audio/wav': 'wav',
+                    'audio/webm': 'webm',
+                };
+                const ext = mimeToExt[media.mimetype] || 'ogg';
+                const filename = `audio.${ext}`;
+
                 logger.info('Voice message downloaded', {
+                    messageId: message.id._serialized,
                     mimeType: media.mimetype,
                     size: audioBuffer.length,
+                    filename,
                 });
 
                 // Transcribe the audio
                 const voiceService = getVoiceService();
                 const transcription = await voiceService.transcribeAudio(
                     audioBuffer,
-                    media.mimetype
+                    media.mimetype,
+                    filename
                 );
 
                 if (transcription.success && transcription.text) {
                     logger.info('Voice transcription successful', {
+                        messageId: message.id._serialized,
                         textLength: transcription.text.length,
                         preview: transcription.text.substring(0, 50),
                     });
@@ -90,12 +109,16 @@ export class MessageHandler {
                     };
                 } else {
                     logger.warn('Voice transcription failed', {
+                        messageId: message.id._serialized,
                         error: transcription.error,
+                        mimeType: media.mimetype,
+                        audioSize: audioBuffer.length,
                     });
                     return { text: undefined, isVoiceMessage: true, audioBuffer };
                 }
             } catch (error) {
                 logger.error('Error processing voice message', {
+                    messageId: message.id._serialized,
                     error: error instanceof Error ? error.message : String(error),
                     stack: error instanceof Error ? error.stack : undefined,
                 });
