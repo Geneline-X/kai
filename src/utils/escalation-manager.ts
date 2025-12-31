@@ -157,7 +157,12 @@ export async function getHealthWorkerContacts(): Promise<HealthWorkerContact[]> 
         }
 
         logger.info('Health worker contacts fetched', { count: data?.length || 0 });
-        return data || [];
+
+        // Ensure phone numbers are strings (in case they're stored as BIGINT)
+        return (data || []).map(contact => ({
+            ...contact,
+            phone: String(contact.phone)
+        }));
     } catch (error) {
         logger.error('Error fetching health worker contacts', error as Error);
         return [];
@@ -275,7 +280,11 @@ export async function getUserInfoForEscalation(userId: string): Promise<{ phone:
             return null;
         }
 
-        return data;
+        // Ensure phone is always a string (in case it's stored as BIGINT)
+        return {
+            phone: String(data.phone),
+            name: data.name
+        };
     } catch (error) {
         logger.error('Error getting user info', error as Error);
         return null;
