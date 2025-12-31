@@ -24,8 +24,15 @@ export class VoiceService {
     private readonly apiKey: string;
 
     constructor() {
-        this.apiHost = config.kay?.host || 'https://kay.geneline-x.net';
+        // Remove trailing slash from host to prevent double slashes in URLs
+        const rawHost = config.kay?.host || 'https://kay.geneline-x.net';
+        this.apiHost = rawHost.endsWith('/') ? rawHost.slice(0, -1) : rawHost;
         this.apiKey = config.kay?.apiKey || config.geneline.apiKey; // Fallback to geneline key if Kay key not set
+
+        logger.info('VoiceService initialized', {
+            apiHost: this.apiHost,
+            hasApiKey: !!this.apiKey,
+        });
     }
 
     /**
@@ -40,10 +47,14 @@ export class VoiceService {
         filename: string = 'audio.ogg'
     ): Promise<TranscriptionResult> {
         try {
+            const transcribeUrl = `${this.apiHost}/api/v1/transcribe`;
+
             logger.info('Transcribing audio', {
                 mimeType,
                 bufferSize: audioBuffer.length,
                 apiHost: this.apiHost,
+                transcribeUrl,
+                filename,
             });
 
             const formData = new FormData();
@@ -52,8 +63,14 @@ export class VoiceService {
                 contentType: mimeType,
             });
 
+            logger.info('Sending transcription request', {
+                url: transcribeUrl,
+                hasApiKey: !!this.apiKey,
+                formDataLength: formData.getLengthSync?.() || 'unknown',
+            });
+
             const response = await axios.post(
-                `${this.apiHost}/api/v1/transcribe`,
+                transcribeUrl,
                 formData,
                 {
                     headers: {
@@ -61,6 +78,8 @@ export class VoiceService {
                         'X-API-Key': this.apiKey,
                     },
                     timeout: 60000, // 60 second timeout for transcription
+                    maxBodyLength: Infinity,
+                    maxContentLength: Infinity,
                 }
             );
 
