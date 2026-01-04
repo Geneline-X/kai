@@ -1,10 +1,63 @@
-import { Message } from 'whatsapp-web.js';
+import { Message, MessageMedia } from 'whatsapp-web.js';
 import { WhatsAppClient } from './client';
 import { QueueManager } from '../queue/manager';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { upsertUser, storeMessage, getUserIdByPhone, incrementUserMessageCount } from '../utils/database-sync';
 import { getVoiceService } from '../services/voice-service';
+
+/**
+ * Download media with timeout and retry logic
+ * Handles flaky WhatsApp Web API and addAnnotations errors
+ */
+async function downloadMediaWithRetry(
+    message: Message,
+    maxRetries: number = 2,
+    timeoutMs: number = 30000
+): Promise<MessageMedia | null> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // Create a timeout promise
+            const timeoutPromise = new Promise<null>((_, reject) => {
+                setTimeout(() => reject(new Error('Download timeout')), timeoutMs);
+            });
+
+            // Race between download and timeout
+            const media = await Promise.race([
+                message.downloadMedia(),
+                timeoutPromise
+            ]);
+
+            if (media) {
+                return media;
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+
+            // Check for known WhatsApp Web API errors
+            const isKnownError =
+                errorMessage.includes('addAnnotations') ||
+                errorMessage.includes('Execution context was destroyed') ||
+                errorMessage.includes('Download timeout') ||
+                errorMessage.includes('Protocol error');
+
+            logger.warn(`Media download attempt ${attempt}/${maxRetries} failed`, {
+                error: errorMessage,
+                isKnownError,
+                messageId: message.id._serialized
+            });
+
+            // If it's the last attempt or a fatal error, return null
+            if (attempt === maxRetries || !isKnownError) {
+                return null;
+            }
+
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+    return null;
+}
 
 export class MessageHandler {
     private whatsappClient: WhatsAppClient;
@@ -58,10 +111,10 @@ export class MessageHandler {
             });
 
             try {
-                // Download the voice message media
-                const media = await message.downloadMedia();
+                // Download the voice message media with retry logic
+                const media = await downloadMediaWithRetry(message);
                 if (!media) {
-                    logger.warn('Could not download voice message media', {
+                    logger.warn('Could not download voice message media after retries', {
                         messageId: message.id._serialized,
                     });
                     return { text: undefined, isVoiceMessage: true };
@@ -185,7 +238,14 @@ export class MessageHandler {
                 // For voice messages that failed transcription, send a helpful message
                 if (isVoiceMessage) {
                     logger.warn('Voice message could not be transcribed', { chatId, messageId });
-                    await this.sendResponse(chatId, "I received your voice message but couldn't understand it. Please try again or send a text message.");
+                    await this.sendResponse(chatId,
+                        "🎤 Voice transcription is temporarily unavailable.\n\n" +
+                        "Please send your message as text instead. I can still help you with:\n" +
+                        "• Health questions and information\n" +
+                        "• Finding nearby health facilities\n" +
+                        "• General assistance\n\n" +
+                        "Simply type your question or message."
+                    );
                     return;
                 }
                 logger.debug('Ignoring empty message', { chatId, messageId });

@@ -46,28 +46,68 @@ export class VoiceService {
         mimeType: string,
         filename: string = 'audio.ogg'
     ): Promise<TranscriptionResult> {
-        try {
-            const transcribeUrl = `${this.apiHost}/api/v1/transcribe`;
+        const transcribeUrl = `${this.apiHost}/api/v1/transcribe`;
 
-            logger.info('Transcribing audio', {
-                mimeType,
-                bufferSize: audioBuffer.length,
-                apiHost: this.apiHost,
-                transcribeUrl,
-                filename,
+        logger.info('Transcribing audio', {
+            mimeType,
+            bufferSize: audioBuffer.length,
+            apiHost: this.apiHost,
+            transcribeUrl,
+            filename,
+        });
+
+        // Try native fetch first (Node.js 18+ FormData)
+        try {
+            const nativeFormData = new globalThis.FormData();
+            const blob = new Blob([audioBuffer], { type: mimeType });
+            nativeFormData.append('file', blob, filename);
+
+            logger.info('Trying native fetch transcription');
+
+            const fetchResponse = await fetch(transcribeUrl, {
+                method: 'POST',
+                headers: {
+                    'X-API-Key': this.apiKey,
+                },
+                body: nativeFormData,
             });
 
+            // Check for frp proxy 404 error
+            if (fetchResponse.status === 404) {
+                const responseText = await fetchResponse.text();
+                if (responseText.includes('frp') || responseText.includes('Not Found')) {
+                    logger.error('Kay API frp proxy is blocking transcription requests', {
+                        status: 404,
+                        response: responseText.substring(0, 200),
+                    });
+                    return {
+                        success: false,
+                        error: 'Voice transcription is temporarily unavailable. Please send a text message instead.',
+                    };
+                }
+            }
+
+            if (fetchResponse.ok) {
+                const data = await fetchResponse.json();
+                const text = this.extractTranscriptionText(data);
+                if (text) {
+                    logger.info('Transcription successful via native fetch', { textLength: text.length });
+                    return { success: true, text };
+                }
+            }
+        } catch (fetchError: any) {
+            logger.warn('Native fetch transcription failed', { error: fetchError.message });
+        }
+
+        // Fallback to axios with form-data
+        try {
             const formData = new FormData();
             formData.append('file', audioBuffer, {
                 filename,
                 contentType: mimeType,
             });
 
-            logger.info('Sending transcription request', {
-                url: transcribeUrl,
-                hasApiKey: !!this.apiKey,
-                formDataLength: formData.getLengthSync?.() || 'unknown',
-            });
+            logger.info('Trying axios transcription');
 
             const response = await axios.post(
                 transcribeUrl,
@@ -77,83 +117,108 @@ export class VoiceService {
                         ...formData.getHeaders(),
                         'X-API-Key': this.apiKey,
                     },
-                    timeout: 60000, // 60 second timeout for transcription
+                    timeout: 60000,
                     maxBodyLength: Infinity,
                     maxContentLength: Infinity,
+                    validateStatus: () => true, // Don't throw on non-2xx
                 }
             );
 
-            // Log the full response to understand the structure
-            logger.info('Transcription API response', {
-                status: response.status,
-                responseData: JSON.stringify(response.data),
-                responseKeys: response.data ? Object.keys(response.data) : [],
-            });
-
-            // Kay API can return different response structures
-            // Try multiple field names to extract the transcribed text
-            let transcribedText = '';
-
-            if (response.data) {
-                // Try different possible field names
-                transcribedText =
-                    response.data.krio_text ||
-                    response.data.text ||
-                    response.data.transcription ||
-                    response.data.result ||
-                    response.data.transcript ||
-                    response.data.output ||
-                    response.data.kri_text ||  // Alternative spelling
-                    response.data.transcribed_text ||
-                    '';
-
-                // If response.data is a string itself
-                if (!transcribedText && typeof response.data === 'string') {
-                    transcribedText = response.data;
-                }
-
-                // If response.data has a nested structure
-                if (!transcribedText && response.data.data) {
-                    transcribedText = response.data.data.text || response.data.data.krio_text || '';
+            // Check for frp proxy 404 error
+            if (response.status === 404) {
+                const responseText = typeof response.data === 'string'
+                    ? response.data
+                    : JSON.stringify(response.data);
+                if (responseText.includes('frp') || responseText.includes('Not Found')) {
+                    logger.error('Kay API frp proxy is blocking transcription requests via axios', {
+                        status: 404,
+                    });
+                    return {
+                        success: false,
+                        error: 'Voice transcription is temporarily unavailable. Please send a text message instead.',
+                    };
                 }
             }
 
-            if (transcribedText && transcribedText.trim().length > 0) {
-                logger.info('Transcription completed', {
-                    success: true,
-                    textLength: transcribedText.length,
-                    preview: transcribedText.substring(0, 100),
-                });
-
-                return {
-                    success: true,
-                    text: transcribedText.trim(),
-                };
-            } else {
-                logger.warn('Transcription returned empty text', {
+            if (response.status >= 200 && response.status < 300) {
+                logger.info('Transcription API response', {
+                    status: response.status,
                     responseData: JSON.stringify(response.data),
-                    responseKeys: response.data ? Object.keys(response.data) : [],
-                    checkedFields: ['krio_text', 'text', 'transcription', 'result', 'transcript', 'output'],
                 });
-                return {
-                    success: false,
-                    error: 'Transcription returned empty text. Response: ' + JSON.stringify(response.data),
-                };
+
+                const transcribedText = this.extractTranscriptionText(response.data);
+
+                if (transcribedText) {
+                    logger.info('Transcription completed', {
+                        success: true,
+                        textLength: transcribedText.length,
+                        preview: transcribedText.substring(0, 100),
+                    });
+                    return { success: true, text: transcribedText };
+                }
             }
+
+            // Non-success response
+            const errorMessage = response.data?.error || `HTTP ${response.status}`;
+            logger.error('Transcription API error', {
+                status: response.status,
+                error: errorMessage,
+            });
+            return { success: false, error: errorMessage };
+
         } catch (error: any) {
             const errorMessage = error.response?.data?.error || error.message;
+
+            // Check if this is a 404 frp error
+            if (error.response?.status === 404) {
+                const responseText = typeof error.response.data === 'string'
+                    ? error.response.data
+                    : JSON.stringify(error.response.data);
+                if (responseText.includes('frp') || responseText.includes('Not Found')) {
+                    logger.error('Kay API frp proxy error detected', { status: 404 });
+                    return {
+                        success: false,
+                        error: 'Voice transcription is temporarily unavailable. Please send a text message instead.',
+                    };
+                }
+            }
+
             logger.error('Transcription failed', {
                 error: errorMessage,
                 stack: error.stack,
                 status: error.response?.status,
-                responseData: error.response?.data ? JSON.stringify(error.response.data) : 'N/A',
             });
 
-            return {
-                success: false,
-                error: errorMessage,
-            };
+            return { success: false, error: errorMessage };
         }
+    }
+
+    /**
+     * Extract transcription text from various response formats
+     */
+    private extractTranscriptionText(data: any): string {
+        if (!data) return '';
+
+        let text =
+            data.krio_text ||
+            data.text ||
+            data.transcription ||
+            data.result ||
+            data.transcript ||
+            data.output ||
+            data.kri_text ||
+            data.transcribed_text ||
+            '';
+
+        if (!text && typeof data === 'string') {
+            text = data;
+        }
+
+        if (!text && data.data) {
+            text = data.data.text || data.data.krio_text || '';
+        }
+
+        return text.trim();
     }
 
     /**
