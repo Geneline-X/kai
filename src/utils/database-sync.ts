@@ -42,9 +42,18 @@ export async function upsertUser(userData: UserData): Promise<string | null> {
             .single();
 
         if (error) {
-            logger.error('Failed to upsert user', error);
+            logger.error('Failed to upsert user', {
+                error,
+                phone: userData.phone,
+                name: userData.name
+            });
             return null;
         }
+
+        logger.debug('User upserted successfully', {
+            userId: data?.id,
+            phone: userData.phone
+        });
 
         return data?.id || null;
     } catch (error) {

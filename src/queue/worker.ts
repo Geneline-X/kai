@@ -102,9 +102,9 @@ export class MessageWorker {
 
             // Use agent mode if enabled and initialized
             if (config.agent.enabled && this.agentLoop) {
-                return this.processWithAgent(chatId, messageId, messageText, isVoiceMessage);
+                return this.processWithAgent(message);
             } else {
-                return this.processDirectly(chatId, messageId, messageText, isGroup, userName, mediaAttachments, isVoiceMessage);
+                return this.processDirectly(message);
             }
 
         } catch (error) {
@@ -121,7 +121,8 @@ export class MessageWorker {
     /**
      * Process message using agent framework
      */
-    private async processWithAgent(chatId: string, messageId: string, messageText: string, isVoiceMessage?: boolean): Promise<void> {
+    private async processWithAgent(message: QueuedMessage): Promise<void> {
+        const { chatId, messageId, messageText, isVoiceMessage } = message;
         logger.info('Processing message with agent', { chatId, messageId, isVoiceMessage });
 
         // Apply Krio translation fallback if needed
@@ -222,13 +223,68 @@ export class MessageWorker {
         }
 
         // Get user role for role-based prompting
-        const phone = chatId.split('@')[0];
+        // Use the resolved phone number from the message handler (already resolved Lid if applicable)
+        // Fallback to chatId split only if resolvedPhone is not available
+        const phone = message.resolvedPhone || chatId.split('@')[0];
         const { getUserRoleByPhone } = await import('../utils/role-manager');
         const userRole = await getUserRoleByPhone(phone);
 
         // Get database userId for escalation tools
-        const { getUserIdByPhone } = await import('../utils/database-sync');
+        const { getUserIdByPhone, upsertUser } = await import('../utils/database-sync');
         const userId = await getUserIdByPhone(phone);
+
+        // Check if user is pending phone collection (was asked for their phone number)
+        const { isPendingPhoneCollection, consumePendingPhoneCollection, forwardToHealthWorkers, createEscalationRecord } = await import('../utils/escalation-manager');
+        if (userId && isPendingPhoneCollection(userId)) {
+            // Check if the message looks like a phone number
+            const cleanNumber = processedText.replace(/[^\d+]/g, '');
+            if (cleanNumber.length >= 8 && cleanNumber.length <= 15) {
+                logger.info('User provided phone number for escalation', {
+                    userId,
+                    providedNumber: cleanNumber
+                });
+
+                // Update user's phone in database
+                await upsertUser({ phone: cleanNumber, name: undefined });
+
+                // Get the pending escalation data and proceed
+                const escalationData = consumePendingPhoneCollection(userId);
+                if (escalationData) {
+                    // Send confirmation and trigger escalation with the new phone
+                    const confirmMsg = `Thank you! I've noted your number (${cleanNumber}). Now forwarding your case to a health worker...`;
+                    await this.sendResponseWithVoice(chatId, messageId, confirmMsg, isVoiceMessage);
+
+                    // Create escalation record with updated phone
+                    const escalationId = await createEscalationRecord(
+                        userId,
+                        escalationData.reason,
+                        escalationData.urgency,
+                        escalationData.latest_message
+                    );
+
+                    // Build report with new phone
+                    const report = {
+                        userId: userId,
+                        userPhone: cleanNumber,
+                        userName: undefined,
+                        reason: escalationData.reason,
+                        conversationSummary: escalationData.conversation_summary || 'No summary available.',
+                        latestMessage: escalationData.latest_message,
+                        timestamp: new Date().toISOString(),
+                        urgencyLevel: escalationData.urgency
+                    };
+
+                    // Forward to health workers using this worker's sendResponse
+                    const sendMessageFn = async (targetChatId: string, message: string): Promise<void> => {
+                        await this.sendResponse(targetChatId, messageId, message);
+                    };
+                    await forwardToHealthWorkers(report, sendMessageFn);
+
+                    logger.info('Escalation forwarded after phone collection', { userId, phone: cleanNumber });
+                    return; // Done processing
+                }
+            }
+        }
 
         // Detect and track intent (use processed/translated text)
         const { detectAndTrackIntent } = await import('../utils/intent-detector');
@@ -278,16 +334,9 @@ export class MessageWorker {
     /**
      * Process message directly (legacy mode)
      */
-    private async processDirectly(
-        chatId: string,
-        messageId: string,
-        messageText: string,
-        isGroup: boolean,
-        userName?: string,
-        mediaAttachments?: Array<{ filename: string; mime: string; data_base64: string }>,
-        isVoiceMessage?: boolean
-    ): Promise<void> {
-        logger.info('Processing message directly (legacy mode)', { chatId, messageId, isVoiceMessage });
+    private async processDirectly(message: QueuedMessage): Promise<void> {
+        const { chatId, messageId, messageText, isGroup, userName, mediaAttachments, isVoiceMessage } = message;
+        logger.info('Processing message directly (legacy mode)', { chatId, messageId, isGroup });
 
         // Build Geneline request
         const request = GenelineClient.buildRequest(
@@ -336,8 +385,8 @@ export class MessageWorker {
     }
 
     /**
-     * Send response - always sends text response
-     * Voice messages are transcribed but response is always text
+     * Send response - can send both text and voice
+     * If voice is enabled, it synthesizes the text and sends as voice note
      */
     private async sendResponseWithVoice(
         chatId: string,
@@ -345,16 +394,60 @@ export class MessageWorker {
         response: string,
         isVoiceMessage?: boolean
     ): Promise<void> {
-        // Log if this was originally a voice message (for debugging)
-        if (isVoiceMessage) {
-            logger.info('Voice message processed, sending text response', {
-                chatId,
-                responseLength: response.length,
-            });
+        // Remove markdown formatting like * (used for bolding) for cleaner text and speech
+        const cleanResponse = response.replace(/\*/g, '');
+        const voiceEnabled = config.voiceResponse.enabled;
+
+        // 1. Log the response intent/length
+        logger.info('Sending AI response', {
+            chatId,
+            messageId,
+            responseLength: response.length,
+            isVoiceMessage,
+            voiceEnabled,
+        });
+
+        // 2. Decide if we should send a voice response
+        // Only send a voice response if the original message was a voice message
+        // AND voice responses are enabled in configuration
+        if (isVoiceMessage && voiceEnabled) {
+            try {
+                logger.info('Voice response requested', { chatId, messageId, provider: config.voiceResponse.provider });
+                const { getVoiceService } = await import('../services/voice-service');
+                const voiceService = getVoiceService();
+
+                logger.debug('Starting speech synthesis...');
+                const ttsResult = await voiceService.synthesizeSpeech(cleanResponse);
+
+                if (ttsResult.success && ttsResult.audioBuffer) {
+                    logger.info('Voice synthesis successful, attempting to send...', {
+                        chatId,
+                        bufferSize: ttsResult.audioBuffer.length
+                    });
+
+                    await this.sendVoiceResponse(chatId, ttsResult.audioBuffer);
+
+                    logger.info('Voice response sending complete', { chatId, messageId });
+                } else {
+                    logger.warn('Voice synthesis failed or no buffer returned', {
+                        chatId,
+                        messageId,
+                        error: ttsResult.error,
+                        hasBuffer: !!ttsResult.audioBuffer
+                    });
+                }
+            } catch (error: any) {
+                logger.error('CRITICAL: Error during voice response processing/sending', {
+                    chatId,
+                    messageId,
+                    error: error.message,
+                    stack: error.stack
+                });
+            }
         }
 
-        // Always send text response
-        return this.sendResponse(chatId, messageId, response);
+        // 3. Always send text response
+        return this.sendResponse(chatId, messageId, cleanResponse);
     }
 
     /**
@@ -384,6 +477,7 @@ export class MessageWorker {
     setFallbackSender(sender: (chatId: string) => Promise<void>): void {
         this.sendFallbackMessage = sender;
     }
+
 
     /**
      * Forward pending escalation to health workers if one exists

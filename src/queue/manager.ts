@@ -8,6 +8,8 @@ export interface QueuedMessage {
     messageText: string;
     isGroup: boolean;
     userName?: string;
+    /** Resolved phone number (from WhatsApp client contact resolution) */
+    resolvedPhone?: string;
     mediaAttachments?: Array<{
         filename: string;
         mime: string;

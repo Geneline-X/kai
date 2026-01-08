@@ -43,6 +43,14 @@ interface Config {
         apiKey: string;
         alwaysTranslateVoice: boolean;
     };
+    voiceResponse: {
+        enabled: boolean;
+        provider: 'kay' | 'google';
+        speakerId: number; // For Kay
+        googleApiKey: string;
+        googleVoiceName: string;
+        googleLanguageCode: string;
+    };
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
@@ -105,5 +113,13 @@ export const config: Config = {
         host: getEnvVar('KAY_HOST', 'https://kay.geneline-x.net'),
         apiKey: getEnvVar('KAY_API_KEY'),
         alwaysTranslateVoice: getEnvBoolean('KAY_ALWAYS_TRANSLATE_VOICE', true),
+    },
+    voiceResponse: {
+        enabled: getEnvBoolean('ENABLE_VOICE_RESPONSES', false),
+        provider: getEnvVar('VOICE_RESPONSE_PROVIDER', 'google') as 'kay' | 'google',
+        speakerId: getEnvNumber('KAY_VOICE_SPEAKER_ID', 0),
+        googleApiKey: process.env.GOOGLE_TTS_API_KEY || '',
+        googleVoiceName: getEnvVar('GOOGLE_TTS_VOICE_NAME', 'en-US-Neural2-F'),
+        googleLanguageCode: getEnvVar('GOOGLE_TTS_LANGUAGE_CODE', 'en-US'),
     },
 };

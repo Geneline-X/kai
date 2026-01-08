@@ -12,23 +12,25 @@ export const HEALTH_INTENTS = {
     GREETING: { name: 'Greeting', keywords: ['hello', 'hi', 'hey', 'kushe', 'aw di bodi', 'good morning', 'good afternoon', 'good evening'] },
 
     // Symptom-related
-    SYMPTOM_CHECK: { name: 'Symptom Check', keywords: ['fever', 'headache', 'pain', 'cough', 'sick', 'sik', 'fiba', 'belly', 'vomit', 'diarrhea', 'rash', 'itch', 'swelling', 'bleeding', 'tired', 'weak'] },
+    SYMPTOM_CHECK: { name: 'Symptom Check', keywords: ['fever', 'headache', 'pain', 'cough', 'sick', 'sik', 'fiba', 'belly', 'vomit', 'diarrhea', 'rash', 'itch', 'swelling', 'bleeding', 'tired', 'weak', 'body pain', 'joint pain', 'red eyes', 'dizzy', 'pale', 'yellow skin', 'yellow eyes', 'jaundice', 'blood in urine', 'blood in stool', 'constipation', 'cold', 'flu', 'sneeze', 'trembling'] },
 
     // Specific diseases
     MALARIA_QUERY: { name: 'Malaria Query', keywords: ['malaria', 'mosquito', 'antimalarial', 'act', 'coartem'] },
     CHOLERA_QUERY: { name: 'Cholera Query', keywords: ['cholera', 'watery stool', 'ors', 'dehydration'] },
     TYPHOID_QUERY: { name: 'Typhoid Query', keywords: ['typhoid', 'widal'] },
     COVID_QUERY: { name: 'COVID Query', keywords: ['covid', 'corona', 'coronavirus', 'vaccine', 'vaccination'] },
+    TB_QUERY: { name: 'TB Query', keywords: ['tuberculosis', 'tb', 'dots', 'cough more than 2 weeks', 'night sweat', 'weight loss', 'chest pain'] },
+    VHF_QUERY: { name: 'VHF Query', keywords: ['ebola', 'lassa fever', 'marburg', 'bleeding from nose', 'bleeding from gums', 'hemorrhagic'] },
 
     // Maternal/Child health
-    PREGNANCY_QUERY: { name: 'Pregnancy Query', keywords: ['pregnant', 'pregnancy', 'antenatal', 'baby', 'pikin', 'bele', 'labor', 'delivery', 'breastfeed'] },
-    CHILD_HEALTH: { name: 'Child Health', keywords: ['child', 'pikin', 'baby', 'infant', 'immunization', 'vaccination', 'growth', 'feeding'] },
+    PREGNANCY_QUERY: { name: 'Pregnancy Query', keywords: ['pregnant', 'pregnancy', 'antenatal', 'baby', 'pikin', 'bele', 'labor', 'delivery', 'breastfeed', 'birth control', 'contraception', 'family planning', 'miscarriage', 'complication', 'bleeding in pregnancy', 'morning sickness', 'folic acid', 'iron tablet'] },
+    CHILD_HEALTH: { name: 'Child Health', keywords: ['child', 'pikin', 'baby', 'infant', 'immunization', 'vaccination', 'growth', 'feeding', 'under five', 'measles', 'polio', 'pentavalent'] },
 
     // Facility and services
     FACILITY_QUERY: { name: 'Facility Query', keywords: ['hospital', 'clinic', 'health center', 'ospitul', 'where', 'location', 'address', 'open', 'hours'] },
 
     // Medication
-    MEDICATION_QUERY: { name: 'Medication Query', keywords: ['medicine', 'drug', 'tablet', 'pill', 'dose', 'paracetamol', 'antibiotic'] },
+    MEDICATION_QUERY: { name: 'Medication Query', keywords: ['medicine', 'drug', 'tablet', 'pill', 'dose', 'paracetamol', 'antibiotic', 'intake', 'overdose', 'side effect', 'damage', 'harm', 'excessive', 'capsule', 'syrup', 'injection', 'treatment'] },
 
     // Prevention and education
     PREVENTION_QUERY: { name: 'Prevention Query', keywords: ['prevent', 'protection', 'avoid', 'how to', 'what is', 'explain', 'educate'] },
@@ -43,7 +45,30 @@ export const HEALTH_INTENTS = {
     HEALTH_ALERT_QUERY: { name: 'Health Alert Query', keywords: ['outbreak', 'alert', 'news', 'campaign', 'what happening'] },
 
     // General health
-    GENERAL_HEALTH: { name: 'General Health', keywords: ['health', 'healthy', 'wellness', 'nutrition', 'diet', 'exercise', 'water', 'hygiene'] },
+    GENERAL_HEALTH: { name: 'General Health', keywords: ['health', 'healthy', 'wellness', 'nutrition', 'diet', 'exercise', 'water', 'hygiene', 'fitness', 'lifestyle'] },
+
+    // Chronic Conditions (NCDs)
+    NCD_QUERY: { name: 'NCD Query', keywords: ['diabetes', 'sugar', 'hypertension', 'blood pressure', 'high bp', 'heart', 'stroke', 'cancer', 'sickle cell', 'asthma'] },
+
+    // Sensitive TOPICS
+    MENTAL_HEALTH: { name: 'Mental Health', keywords: ['mental', 'depression', 'anxiety', 'stress', 'suicide', 'suicidal', 'trauma', 'grief', 'sad', 'cannot sleep', 'worry', 'madness', 'psychology'] },
+    SGBV_QUERY: { name: 'SGBV Query', keywords: ['rape', 'sexual assault', 'domestic violence', 'abuse', 'beating', 'violence', 'hurt by partner', 'forced sex', 'harassment'] },
+    STI_HIV_QUERY: { name: 'STI/HIV Query', keywords: ['sti', 'std', 'hiv', 'aids', 'syphilis', 'gonorrhea', 'discharge', 'sore on private part', 'burning sensation', 'safe sex', 'condom'] },
+
+    // WASH and Environment
+    WASH_QUERY: { name: 'WASH Query', keywords: ['water', 'sanitation', 'toilet', 'hygiene', 'latrine', 'garbage', 'waste', 'dirty water', 'handwash', 'soap', 'chlorine', 'clean wata'] },
+
+    // Nutrition
+    NUTRITION_QUERY: { name: 'Nutrition Query', keywords: ['malnutrition', 'stunting', 'underweight', 'vitamin', 'protein', 'balanced diet', 'breastfeeding', 'kwashiorkor', 'marasmus'] },
+
+    // First Aid & Injuries
+    FIRST_AID: { name: 'First Aid', keywords: ['first aid', 'burn', 'wound', 'injury', 'snake bite', 'dog bite', 'cut', 'bleed', 'accident', 'fracture', 'broken bone'] },
+    ZOONOTIC_QUERY: { name: 'Zoonotic Query', keywords: ['rabies', 'monkeypox', 'animal bite', 'bat', 'rat', 'bushmeat'] },
+
+    // Sensory & Others
+    SENSORY_QUERY: { name: 'Sensory Query', keywords: ['eye', 'blind', 'ear', 'deaf', 'cataract', 'glaucoma', 'ear discharge', 'hearing', 'vision'] },
+    DENTAL_QUERY: { name: 'Dental Query', keywords: ['tooth', 'teeth', 'gum', 'dentist', 'toothache', 'mouth sore'] },
+    SKIN_QUERY: { name: 'Skin Query', keywords: ['skin', 'scabies', 'krawl-krawl', 'fungal', 'ringworm', 'eczema', 'sores'] },
 
     // Fallback
     UNKNOWN: { name: 'Unknown', keywords: [] }

@@ -30,21 +30,44 @@ export class WhatsAppClient extends EventEmitter {
         // Detect Chrome/Chromium path based on environment
         const getChromePath = (): string => {
             // Use environment variable if set (highest priority)
-            if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-                return process.env.PUPPETEER_EXECUTABLE_PATH;
+            const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            if (envPath && fs.existsSync(envPath)) {
+                return envPath;
+            } else if (envPath) {
+                logger.warn(`Chromium path from environment does not exist: ${envPath}. Falling back to OS defaults.`);
             }
 
             // Detect based on OS
             const platform = os.platform();
             if (platform === 'linux') {
                 // Linux/Docker (Render, Railway, etc.)
-                return '/usr/bin/chromium';
+                const linuxPaths = ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
+                for (const p of linuxPaths) {
+                    if (fs.existsSync(p)) return p;
+                }
+                return '/usr/bin/chromium'; // Fallback
             } else if (platform === 'darwin') {
                 // macOS
-                return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+                const macPaths = [
+                    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+                    '/Applications/Chromium.app/Contents/MacOS/Chromium'
+                ];
+                for (const p of macPaths) {
+                    if (fs.existsSync(p)) return p;
+                }
+                return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; // Fallback
             } else if (platform === 'win32') {
                 // Windows
-                return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+                const winPaths = [
+                    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+                ];
+                for (const p of winPaths) {
+                    if (fs.existsSync(p)) return p;
+                }
+                return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; // Fallback
             }
 
             // Fallback
@@ -306,18 +329,31 @@ export class WhatsAppClient extends EventEmitter {
 
         const { MessageMedia } = await import('whatsapp-web.js');
 
-        // Create media from buffer - WhatsApp prefers opus/ogg but accepts wav
+        const provider = config.voiceResponse.provider;
+        const mimeType = provider === 'google' ? 'audio/ogg; codecs=opus' : 'audio/wav';
+        const filename = provider === 'google' ? 'voice_response.ogg' : 'voice_response.wav';
+
         const media = new MessageMedia(
-            'audio/wav',
+            mimeType,
             audioBuffer.toString('base64'),
-            'voice_response.wav'
+            filename
         );
 
-        await this.client.sendMessage(chatId, media, {
-            sendAudioAsVoice: true,
-        });
 
-        logger.debug('Voice message sent', { chatId, audioSize: audioBuffer.length });
+        try {
+            await this.client.sendMessage(chatId, media, {
+                sendAudioAsVoice: true,
+            });
+            logger.info('Voice message successfully handed off to WhatsApp', { chatId, audioSize: audioBuffer.length });
+        } catch (error: any) {
+            logger.error('CRITICAL: WhatsApp failed to send voice message', {
+                chatId,
+                error: error.message,
+                stack: error.stack
+            });
+            throw error;
+        }
+
     }
 
     /**
@@ -353,6 +389,70 @@ export class WhatsAppClient extends EventEmitter {
         this.state.isReady = false;
         this.state.qrCode = undefined;
         this.state.clientInfo = undefined;
+    }
+
+    /**
+     * Resolve a contact's real phone number and name
+     * Handles WhatsApp Lids (Linked IDs) by attempting to resolve them
+     */
+    async resolveContact(chatId: string): Promise<{ phone: string; name?: string; isLid: boolean }> {
+        const contactId = chatId.includes('@') ? chatId : `${chatId}@c.us`;
+        // Check for @lid or long numeric IDs (usually 15+ digits)
+        const isLid = contactId.includes('@lid') || /^\d{15,}@/.test(contactId);
+
+        try {
+            const contact = await this.client.getContactById(contactId);
+            let phone = contact.number || contactId.split('@')[0];
+            let name = contact.pushname || contact.name || undefined;
+
+            // If it's a Lid, try to resolve the real phone number
+            // Note: getContactLidAndPhone might not be available in all versions
+            if (isLid && (this.client as any).getContactLidAndPhone) {
+                try {
+                    const resolved = await (this.client as any).getContactLidAndPhone(contactId);
+                    if (resolved && resolved.phone) {
+                        logger.info('Resolved Lid to phone number', { lid: contactId, phone: resolved.phone });
+                        phone = resolved.phone;
+                        // Try to get contact info again with the real phone number for better name resolution
+                        const realContact = await this.client.getContactById(`${phone}@c.us`);
+                        name = realContact.pushname || realContact.name || name;
+                    }
+                } catch (resolveError) {
+                    logger.debug('Failed to resolve Lid via getContactLidAndPhone', {
+                        lid: contactId,
+                        error: (resolveError as Error).message
+                    });
+                }
+            }
+
+            if (!phone) {
+                logger.warn('resolveContact: Phone resolution returned empty value, falling back to chatId split', { chatId });
+                phone = contactId.split('@')[0];
+            }
+
+            return { phone, name, isLid };
+        } catch (error: any) {
+            const errorMessage = error.message || '';
+            const isInternalError = errorMessage.includes('getIsMyContact is not a function') ||
+                errorMessage.includes('Evaluation failed');
+
+            if (isInternalError) {
+                logger.warn('WhatsApp library internal error while getting contact info - using fallback', {
+                    chatId: contactId,
+                    isLid
+                });
+            } else {
+                logger.error('Error resolving contact', {
+                    chatId: contactId,
+                    error: errorMessage
+                });
+            }
+
+            return {
+                phone: contactId.split('@')[0],
+                isLid
+            };
+        }
     }
 
     /**

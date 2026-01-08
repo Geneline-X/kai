@@ -252,25 +252,8 @@ export class MessageHandler {
                 return;
             }
 
-            // Get contact info (with fallback for WhatsApp Web API changes)
-            let userName: string | undefined;
-            let phone: string;
-            try {
-                const contact = await message.getContact();
-                userName = contact.pushname || contact.name || undefined;
-
-                // Get actual phone number from contact, fallback to chatId if not available
-                phone = contact.number || chatId.split('@')[0];
-            } catch (error) {
-                // Fallback: Try to get from message metadata
-                logger.debug('Could not fetch contact info, using fallback', {
-                    chatId,
-                    messageId,
-                    error: (error as Error).message
-                });
-                userName = undefined;
-                phone = chatId.split('@')[0];
-            }
+            // Get contact info (with improved Lid and name resolution)
+            const { phone, name: userName, isLid } = await this.whatsappClient.resolveContact(chatId);
 
             logger.info('Handling message', {
                 from: chatId,
@@ -278,6 +261,7 @@ export class MessageHandler {
                 hasText: !!messageText,
                 isVoiceMessage,
                 userName,
+                isLid
             });
 
             // IMPORTANT: Sync user to database FIRST and WAIT for it to complete
@@ -310,7 +294,7 @@ export class MessageHandler {
                         const response = await handleButtonInteraction(action, lastTopic, userId);
 
                         if (response) {
-                            await this.sendResponse(chatId, response);
+                            await this.sendResponse(chatId, response, userId);
                             return; // Don't process as regular message
                         }
                     }
@@ -335,11 +319,11 @@ export class MessageHandler {
                 messageText,
                 isGroup: chat.isGroup,
                 userName,
+                resolvedPhone: phone,
                 timestamp: Date.now(),
                 isVoiceMessage,
                 voiceAudioBuffer: messageResult.audioBuffer,
             });
-
         } catch (error) {
             logger.error('Failed to handle message', error as Error, {
                 event: 'error',
@@ -352,15 +336,17 @@ export class MessageHandler {
 
     /**
      * Send bot response to user
+     * @param chatId - The target chat ID (could be a Lid)
+     * @param responseText - The text to send
+     * @param userId - Optional existing userId from database sync
      */
-    async sendResponse(chatId: string, responseText: string): Promise<void> {
+    async sendResponse(chatId: string, responseText: string, userId?: string): Promise<void> {
         try {
             await this.whatsappClient.sendMessage(chatId, responseText);
-            logger.info('Response sent', { chatId });
+            logger.info('Response sent', { chatId, userId });
 
             // Store bot message in database (async, non-blocking)
-            const phone = chatId.split('@')[0];
-            this.storeBotMessage(phone, responseText).catch(err => {
+            this.storeBotMessage(chatId, responseText, userId).catch(err => {
                 logger.error('Failed to store bot message', err);
             });
 
@@ -417,19 +403,34 @@ export class MessageHandler {
 
     /**
      * Store bot response in database
-     * This method looks up the userId by phone - for cases where we don't have userId yet
+     * @param chatId - The chat ID (real phone or Lid)
+     * @param content - Message content
+     * @param userId - Optional existing userId
      */
-    private async storeBotMessage(phone: string, content: string): Promise<void> {
+    private async storeBotMessage(chatId: string, content: string, userId?: string): Promise<void> {
         try {
-            const userId = await getUserIdByPhone(phone);
+            // If we already have a userId, use it directly
             if (userId) {
                 await storeMessage({
                     user_id: userId,
                     sender: 'bot',
                     content,
                 });
+                return;
+            }
+
+            // Otherwise, resolve the contact to get the real phone number first
+            const { phone } = await this.whatsappClient.resolveContact(chatId);
+
+            const existingUserId = await getUserIdByPhone(phone);
+            if (existingUserId) {
+                await storeMessage({
+                    user_id: existingUserId,
+                    sender: 'bot',
+                    content,
+                });
             } else {
-                // User might not exist yet - try to create them first
+                // User might not exist yet - try to create them first using the REAL phone number
                 const newUserId = await upsertUser({ phone });
                 if (newUserId) {
                     await storeMessage({
@@ -438,11 +439,11 @@ export class MessageHandler {
                         content,
                     });
                 } else {
-                    logger.warn('Could not store bot message - user not found', { phone });
+                    logger.warn('Could not store bot message - user creation failed', { phone, chatId });
                 }
             }
         } catch (error) {
-            logger.error('Failed to store bot message in database', error as Error, { phone });
+            logger.error('Failed to store bot message in database', error as Error, { chatId });
         }
     }
 

@@ -120,8 +120,9 @@ export class LocationService {
         // Filter by facility type if specified
         let facilitiesToSearch = this.facilities;
         if (facilityType) {
+            const searchType = facilityType.toUpperCase();
             facilitiesToSearch = this.facilities.filter(
-                f => f.type.toUpperCase() === facilityType.toUpperCase()
+                f => f.type.toUpperCase() === searchType || f.facility.toUpperCase().includes(searchType)
             );
         }
 
@@ -148,6 +149,58 @@ export class LocationService {
     }
 
     /**
+     * Find health facilities by text query (name, district, or community)
+     * @param query - The search query string
+     * @param maxResults - Maximum number of results to return (default: 5)
+     * @returns Array of matching facilities
+     */
+    findFacilitiesByText(query: string, maxResults: number = 5): FacilitySearchResult[] {
+        if (!this.loaded || this.facilities.length === 0) {
+            this.loadFacilities();
+            if (!this.loaded) return [];
+        }
+
+        const searchTerm = query.toLowerCase().trim();
+        if (!searchTerm) return [];
+
+        // 1. Filter by keyword matches in facility, district, or community
+        // Weighting: Exact matches first, then partial matches
+        const matches = this.facilities
+            .filter(f => f.functional === 'Functional')
+            .filter(f => {
+                const name = f.facility.toLowerCase();
+                const dist = f.district.toLowerCase();
+                const comm = f.community.toLowerCase();
+                return name.includes(searchTerm) || dist.includes(searchTerm) || comm.includes(searchTerm);
+            });
+
+        // 2. Sort results: Exact matches in facility name first, then district, then community
+        matches.sort((a, b) => {
+            const aName = a.facility.toLowerCase();
+            const bName = b.facility.toLowerCase();
+            const aDist = a.district.toLowerCase();
+            const bDist = b.district.toLowerCase();
+
+            // Exact name match
+            if (aName === searchTerm && bName !== searchTerm) return -1;
+            if (bName === searchTerm && aName !== searchTerm) return 1;
+
+            // Exact district match
+            if (aDist === searchTerm && bDist !== searchTerm) return -1;
+            if (bDist === searchTerm && aDist !== searchTerm) return 1;
+
+            return 0; // Maintain original order otherwise
+        });
+
+        // Since we don't have a distance from user here, we just return them
+        // with distance 0 (meaning "exact match search result")
+        return matches.slice(0, maxResults).map(f => ({
+            facility: f,
+            distance: 0
+        }));
+    }
+
+    /**
      * Format facility information for WhatsApp message
      * @param result - Facility search result
      * @param index - Index in the list (for numbering)
@@ -162,9 +215,13 @@ export class LocationService {
         // Format facility type
         const typeEmoji = this.getFacilityTypeEmoji(facility.type);
 
+        const distanceLine = distance > 0
+            ? `   📏 Distance: ${distance.toFixed(1)} km`
+            : `   🔍 Found via location name`;
+
         return [
             `${index}. **${facility.facility}** ${typeEmoji}`,
-            `   📏 Distance: ${distance.toFixed(1)} km`,
+            distanceLine,
             `   📍 ${facility.district} District, ${facility.community}`,
             `   🗺️ [Get Directions](${mapsLink})`,
         ].join('\n');

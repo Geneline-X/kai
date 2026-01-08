@@ -89,6 +89,84 @@ export function resetEscalationTracking(userId: string): void {
 }
 
 /**
+ * Check if a phone number is a WhatsApp Lid (Linked ID)
+ * Lids are typically 13+ digit numeric strings that WhatsApp uses for privacy
+ */
+export function isPhoneLid(phone: string): boolean {
+    if (!phone) return false;
+    const clean = phone.replace(/[^\d]/g, '');
+    // Lids are typically 13+ digits, real phone numbers are usually 7-12 digits
+    // Sierra Leone numbers are 11 digits (232 + 8 digit local)
+    return clean.length >= 13;
+}
+
+// Track users we're waiting for phone numbers from
+const pendingPhoneCollection = new Map<string, { escalationData: any; timestamp: number }>();
+
+/**
+ * Mark a user as pending phone collection
+ */
+export function setPendingPhoneCollection(userId: string, escalationData: any): void {
+    pendingPhoneCollection.set(userId, {
+        escalationData,
+        timestamp: Date.now()
+    });
+    logger.info('Waiting for user to provide phone number', { userId });
+}
+
+/**
+ * Check if a user is pending phone collection
+ */
+export function isPendingPhoneCollection(userId: string): boolean {
+    const pending = pendingPhoneCollection.get(userId);
+    if (!pending) return false;
+    // Expire after 5 minutes
+    if (Date.now() - pending.timestamp > 5 * 60 * 1000) {
+        pendingPhoneCollection.delete(userId);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Get and clear pending phone collection data
+ */
+export function consumePendingPhoneCollection(userId: string): any | null {
+    const pending = pendingPhoneCollection.get(userId);
+    if (!pending) return null;
+    pendingPhoneCollection.delete(userId);
+    return pending.escalationData;
+}
+
+/**
+ * Simple phone number formatting utility
+ */
+export function formatPhoneNumber(phone: string): string {
+    if (!phone) return 'Unknown';
+
+    // Clean the number
+    const clean = phone.replace(/[^\d]/g, '');
+
+    // If it's a Lid (internal ID), it's usually very long or contains lid-like patterns
+    // Note: Numbers with 15 or more digits are typically Lids in newer WhatsApp versions
+    if (clean.length >= 15 || phone.toLocaleLowerCase().includes('lid')) {
+        // Return a shortened, labeled version if it's very long
+        if (clean.length >= 15) {
+            return `[ID: ${clean.substring(0, 6)}...${clean.slice(-4)}]`;
+        }
+        return `[ID: ${phone.split('@')[0]}]`;
+    }
+
+    // If it looks like a real phone number but missing +, add it
+    // Most SL numbers (232) or international numbers are between 7-15 digits
+    if (clean.length >= 7 && clean.length <= 15 && !phone.startsWith('+')) {
+        return `+${clean}`;
+    }
+
+    return phone;
+}
+
+/**
  * Format escalation report for health workers
  */
 export function formatEscalationReport(report: EscalationReport): string {
@@ -98,10 +176,12 @@ export function formatEscalationReport(report: EscalationReport): string {
         normal: '📋 ESCALATION'
     };
 
+    const formattedPhone = formatPhoneNumber(report.userPhone);
+
     return `${urgencyEmoji[report.urgencyLevel]} REPORT
 
-👤 User: ${report.userName || 'Unknown'}
-📱 Phone: ${report.userPhone}
+👤 User: ${report.userName || 'Unknown User'}
+📱 Phone: ${formattedPhone}
 🕐 Time: ${report.timestamp}
 
 📝 REASON:
@@ -114,7 +194,8 @@ ${report.conversationSummary}
 "${report.latestMessage}"
 
 ---
-Please respond to this user at: ${report.userPhone}`;
+Please respond to this user at: ${formattedPhone}
+Internal ID: ${report.userPhone}`;
 }
 
 /**

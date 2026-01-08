@@ -9,6 +9,8 @@ import {
     createEscalationRecord,
     getEscalationConfirmationMessage,
     getPoliteDeclineMessage,
+    isPhoneLid,
+    setPendingPhoneCollection,
     EscalationReport
 } from '../../utils/escalation-manager';
 import { Message } from '../conversation-history';
@@ -88,11 +90,32 @@ export const createEscalationTool = (): Tool => {
                     ? urgency_level as 'emergency' | 'urgent' | 'normal'
                     : 'normal';
 
-                // Get user info
+                // Get user info (attempt to re-fetch for latest name/phone resolution)
                 const userInfo = await getUserInfoForEscalation(user_id);
                 if (!userInfo) {
                     logger.error('Could not find user for escalation', { userId: user_id });
                     return 'I apologize, but I encountered an issue processing your request. Please try again or visit your nearest health facility.';
+                }
+
+                // Check if user's phone is a Lid (hash number) - if so, ask for their real number
+                if (isPhoneLid(userInfo.phone)) {
+                    logger.info('User phone is a Lid, requesting real phone number', {
+                        userId: user_id,
+                        lidPhone: userInfo.phone
+                    });
+
+                    // Store the escalation data for later completion
+                    setPendingPhoneCollection(user_id, {
+                        reason,
+                        urgency,
+                        latest_message,
+                        conversation_summary
+                    });
+
+                    // Ask user for their phone number
+                    return `To connect you with a health worker, I need your phone number so they can reach you. Please reply with your phone number (e.g., 23276123456).
+
+Once you provide your number, I will immediately forward your case to an available health worker.`;
                 }
 
                 // Create escalation record in database

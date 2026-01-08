@@ -16,13 +16,19 @@ Returns the nearest facilities with distances and directions.`,
                 name: 'latitude',
                 type: 'number',
                 description: 'GPS latitude coordinate (e.g., 8.4657 for Freetown)',
-                required: true,
+                required: false,
             },
             {
                 name: 'longitude',
                 type: 'number',
                 description: 'GPS longitude coordinate (e.g., -13.2317 for Freetown)',
-                required: true,
+                required: false,
+            },
+            {
+                name: 'query',
+                type: 'string',
+                description: 'Optional: Search by name of town, road, district, or facility (e.g., "Kenema", "Hanga Road")',
+                required: false,
             },
             {
                 name: 'facilityType',
@@ -38,55 +44,71 @@ Returns the nearest facilities with distances and directions.`,
             },
         ],
         execute: async (params: {
-            latitude: number;
-            longitude: number;
+            latitude?: number;
+            longitude?: number;
+            query?: string;
             facilityType?: string;
             maxResults?: number;
         }): Promise<string> => {
             try {
-                const { latitude, longitude, facilityType, maxResults = 5 } = params;
+                const { latitude, longitude, query, facilityType, maxResults = 5 } = params;
 
                 logger.info('Finding health facilities', {
                     latitude,
                     longitude,
+                    query,
                     facilityType,
                     maxResults,
                 });
 
                 const locationService = getLocationService();
-                const location: LocationCoordinates = { latitude, longitude };
+                let results: any[] = [];
+                let userLocation: LocationCoordinates | undefined;
 
-                // Check if location is within Sierra Leone
-                if (!locationService.isInSierraLeone(location)) {
-                    return `⚠️ The location you provided (${latitude}, ${longitude}) appears to be outside Sierra Leone.\n\n` +
-                        `This service only covers health facilities within Sierra Leone. ` +
-                        `Please share a location within Sierra Leone or contact us for assistance.`;
+                // 1. Try text-based search if query is provided
+                if (query) {
+                    results = locationService.findFacilitiesByText(query, maxResults);
+                    logger.info('Text-based facility search results', { count: results.length, query });
                 }
 
-                // Find nearest facilities
-                const results = locationService.findNearestFacilities(
-                    location,
-                    maxResults,
-                    facilityType
-                );
+                // 2. If no text results or no query, try coordinate-based search
+                if (results.length === 0 && latitude !== undefined && longitude !== undefined) {
+                    userLocation = { latitude, longitude };
+
+                    // Check if location is within Sierra Leone
+                    if (!locationService.isInSierraLeone(userLocation)) {
+                        return `⚠️ The location you provided (${latitude}, ${longitude}) appears to be outside Sierra Leone.\n\n` +
+                            `This service only covers health facilities within Sierra Leone. ` +
+                            `Please share a location within Sierra Leone or contact us for assistance.`;
+                    }
+
+                    results = locationService.findNearestFacilities(
+                        userLocation,
+                        maxResults,
+                        facilityType
+                    );
+                }
 
                 if (results.length === 0) {
-                    let message = '❌ No health facilities found near your location.';
+                    let message = '❌ No health facilities found';
+                    if (query) message += ` for "${query}"`;
+                    message += '.';
 
                     if (facilityType) {
                         message += `\n\nThere are no ${facilityType} facilities nearby. ` +
                             `Would you like me to search for other types of health facilities?`;
                     } else {
-                        message += '\n\nThis may be a remote area. Please try:\n' +
-                            '1. Sharing a location closer to a town or city\n' +
-                            '2. Contacting us for assistance finding the nearest facility';
+                        message += '\n\nThis may be a remote area or a missing location name. Please try:\n' +
+                            '1. Sharing your GPS location via WhatsApp\n' +
+                            '2. Providing a more specific town or district name\n' +
+                            '3. Contacting us for assistance';
                     }
 
                     return message;
                 }
 
                 // Format and return results
-                const formattedResults = locationService.formatSearchResults(results, location);
+                const formattedResults = locationService.formatSearchResults(results, userLocation || { latitude: 0, longitude: 0 });
 
                 logger.info('Health facilities found', {
                     count: results.length,

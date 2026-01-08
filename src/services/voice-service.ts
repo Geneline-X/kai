@@ -222,16 +222,37 @@ export class VoiceService {
     }
 
     /**
-     * Convert text to speech using Krio TTS
-     * @param text - The text to synthesize (should be in Krio)
-     * @param speakerId - Optional speaker ID (0-9)
+     * Convert text to speech using configured provider (Kay or Google)
+     * @param text - The text to synthesize
+     * @param speakerId - Optional speaker ID (for Kay)
      */
     async synthesizeSpeech(
+        text: string,
+        speakerId?: number
+    ): Promise<TTSResult> {
+        const provider = config.voiceResponse.provider;
+        const enabled = config.voiceResponse.enabled;
+
+        if (!enabled) {
+            return { success: false, error: 'Voice responses are disabled' };
+        }
+
+        if (provider === 'google') {
+            return this.synthesizeSpeechWithGoogle(text);
+        } else {
+            return this.synthesizeSpeechWithKay(text, speakerId ?? config.voiceResponse.speakerId);
+        }
+    }
+
+    /**
+     * Convert text to speech using Krio TTS (Kay API)
+     */
+    async synthesizeSpeechWithKay(
         text: string,
         speakerId: number = 0
     ): Promise<TTSResult> {
         try {
-            logger.info('Synthesizing speech', {
+            logger.info('Synthesizing speech via Kay', {
                 textLength: text.length,
                 speakerId,
             });
@@ -258,7 +279,7 @@ export class VoiceService {
 
             const audioBuffer = Buffer.from(response.data);
 
-            logger.info('Speech synthesis completed', {
+            logger.info('Kay speech synthesis completed', {
                 success: true,
                 audioSize: audioBuffer.length,
             });
@@ -269,9 +290,97 @@ export class VoiceService {
             };
         } catch (error: any) {
             const errorMessage = error.response?.data?.error || error.message;
-            logger.error('TTS synthesis failed', {
+            logger.error('Kay TTS synthesis failed', {
                 error: errorMessage,
-                stack: error.stack,
+                status: error.response?.status,
+            });
+
+            return {
+                success: false,
+                error: errorMessage,
+            };
+        }
+    }
+
+    /**
+     * Convert text to speech using Google Cloud TTS
+     */
+    async synthesizeSpeechWithGoogle(
+        text: string
+    ): Promise<TTSResult> {
+        try {
+            const apiKey = config.voiceResponse.googleApiKey;
+            if (!apiKey) {
+                return { success: false, error: 'Google TTS API Key is not configured' };
+            }
+
+            // Remove markdown formatting like * (used for bolding) for cleaner speech
+            const cleanText = text.replace(/\*/g, '');
+
+            logger.info('Synthesizing speech via Google', {
+                textLength: cleanText.length,
+                voice: config.voiceResponse.googleVoiceName,
+            });
+
+            const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`;
+
+            // Convert plain text to SSML for more natural speech
+            // 1. Escape special characters
+            const escapedText = cleanText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+
+            // 2. Add natural pauses after sentences and commas
+            const ssmlText = `<speak>
+                <prosody rate="0.95">
+                    ${escapedText
+                    .replace(/\. /g, '. <break time="400ms"/> ')
+                    .replace(/\? /g, '? <break time="400ms"/> ')
+                    .replace(/! /g, '! <break time="400ms"/> ')
+                    .replace(/, /g, ', <break time="200ms"/> ')}
+                </prosody>
+            </speak>`;
+
+            const response = await axios.post(
+                url,
+                {
+                    input: { ssml: ssmlText },
+                    voice: {
+                        languageCode: config.voiceResponse.googleLanguageCode,
+                        name: config.voiceResponse.googleVoiceName,
+                    },
+                    audioConfig: {
+                        audioEncoding: 'OGG_OPUS',
+                        speakingRate: 0.95, // Slightly slower is more natural for health info
+                    },
+                },
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 30000,
+                }
+            );
+
+            if (response.data && response.data.audioContent) {
+                const audioBuffer = Buffer.from(response.data.audioContent, 'base64');
+                logger.info('Google speech synthesis completed', {
+                    success: true,
+                    audioSize: audioBuffer.length,
+                });
+
+                return {
+                    success: true,
+                    audioBuffer,
+                };
+            } else {
+                return { success: false, error: 'No audio content returned from Google' };
+            }
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.error?.message || error.message;
+            logger.error('Google TTS synthesis failed', {
+                error: errorMessage,
                 status: error.response?.status,
             });
 
