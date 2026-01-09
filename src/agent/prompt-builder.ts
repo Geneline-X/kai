@@ -147,6 +147,20 @@ For escalate_to_health_worker tool (only after check confirms or emergency):
   }
 }
 
+For find_health_facility tool (use when user mentions a location or asks for nearby facilities):
+{
+  "thought": "User is looking for health facilities in a specific area",
+  "tool": "find_health_facility",
+  "parameters": {
+    "query": "Name of town, district, or facility mentioned by user",
+    "facilityType": "optional - e.g., HOSPITAL, CHC",
+    "latitude": 0,
+    "longitude": 0
+  }
+}
+💡 IMPORTANT: If the user provides a location name (e.g., "Segbwema", "Kenema"), ALWAYS put it in the "query" parameter. Only provide latitude/longitude if the user explicitly shared their GPS location via WhatsApp. Do NOT guess coordinates.
+
+
 ESCALATION DECISION LOGIC:
 1. If user says "escalate", "talk to human", "call nurse" etc. → First use check_escalation_status
 2. If check returns shouldEscalate=false → Use the suggestedResponse to politely offer guidance first

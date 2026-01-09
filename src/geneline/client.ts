@@ -87,9 +87,20 @@ export class GenelineClient {
             }
 
             // No more retries or non-retryable error
+            const status = axiosError.response?.status;
+
+            if (status === 402) {
+                logger.error('❌ GENELINE-X CREDITS EXHAUSTED (402): Please check your billing/credits at Geneline-X Dashboard.', {
+                    attempt: attempt + 1,
+                    status: 402,
+                    host: config.geneline.host
+                });
+                throw new Error('Geneline-X API error: Credits exhausted or payment required (402)');
+            }
+
             logger.error('Geneline-X request failed', axiosError as Error, {
                 attempt: attempt + 1,
-                status: axiosError.response?.status,
+                status: status,
             });
 
             throw new Error(`Geneline-X API error: ${axiosError.message}`);

@@ -160,42 +160,74 @@ export class LocationService {
             if (!this.loaded) return [];
         }
 
-        const searchTerm = query.toLowerCase().trim();
-        if (!searchTerm) return [];
+        const rawSearch = query.toLowerCase().trim();
+        if (!rawSearch) return [];
 
-        // 1. Filter by keyword matches in facility, district, or community
-        // Weighting: Exact matches first, then partial matches
+        // 1. Clean the search term - remove common fillers to extract keywords
+        const stopWords = ['district', 'town', 'city', 'village', 'road', 'street', 'community', 'facility', 'health', 'center', 'hospital'];
+        let cleanQuery = rawSearch;
+        stopWords.forEach(word => {
+            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+            cleanQuery = cleanQuery.replace(regex, '');
+        });
+
+        const keywords = cleanQuery.split(/[\s,]+/).filter(k => k.length >= 3);
+
+        // If we stripped everything too aggressively, use the raw words but filter short ones
+        if (keywords.length === 0) {
+            keywords.push(...rawSearch.split(/[\s,]+/).filter(k => k.length >= 3));
+        }
+
+        // 2. Filter facilities
         const matches = this.facilities
             .filter(f => f.functional === 'Functional')
             .filter(f => {
                 const name = f.facility.toLowerCase();
                 const dist = f.district.toLowerCase();
                 const comm = f.community.toLowerCase();
-                return name.includes(searchTerm) || dist.includes(searchTerm) || comm.includes(searchTerm);
+
+                // Check if ANY keyword matches ANY field
+                return keywords.some(k =>
+                    name.includes(k) ||
+                    dist.includes(k) ||
+                    comm.includes(k) ||
+                    k.includes(name) ||
+                    k.includes(dist) ||
+                    k.includes(comm)
+                );
             });
 
-        // 2. Sort results: Exact matches in facility name first, then district, then community
-        matches.sort((a, b) => {
-            const aName = a.facility.toLowerCase();
-            const bName = b.facility.toLowerCase();
-            const aDist = a.district.toLowerCase();
-            const bDist = b.district.toLowerCase();
+        // 3. Score and sort matches
+        const scoredMatches = matches.map(f => {
+            const name = f.facility.toLowerCase();
+            const dist = f.district.toLowerCase();
+            const comm = f.community.toLowerCase();
 
-            // Exact name match
-            if (aName === searchTerm && bName !== searchTerm) return -1;
-            if (bName === searchTerm && aName !== searchTerm) return 1;
+            let score = 0;
 
-            // Exact district match
-            if (aDist === searchTerm && bDist !== searchTerm) return -1;
-            if (bDist === searchTerm && aDist !== searchTerm) return 1;
+            keywords.forEach(k => {
+                // Exact matches get extreme priority
+                if (name === k) score += 50;
+                if (dist === k) score += 30;
+                if (comm === k) score += 20;
 
-            return 0; // Maintain original order otherwise
+                // Substring matches
+                if (name.includes(k)) score += 10;
+                if (dist.includes(k)) score += 8;
+                if (comm.includes(k)) score += 6;
+
+                // Reverse substring for short field names
+                if (k.includes(name) && name.length > 3) score += 5;
+                if (k.includes(dist) && dist.length > 3) score += 5;
+            });
+
+            return { facility: f, score };
         });
 
-        // Since we don't have a distance from user here, we just return them
-        // with distance 0 (meaning "exact match search result")
-        return matches.slice(0, maxResults).map(f => ({
-            facility: f,
+        scoredMatches.sort((a, b) => b.score - a.score);
+
+        return scoredMatches.slice(0, maxResults).map(m => ({
+            facility: m.facility,
             distance: 0
         }));
     }

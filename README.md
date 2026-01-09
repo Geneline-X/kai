@@ -1,30 +1,39 @@
-# WhatsApp ↔ Geneline-X AI Bridge
+# Kai: WhatsApp
 
-A production-ready Node.js TypeScript service that bridges WhatsApp messages to Geneline-X AI and relays responses back.
+Kai is a production-ready Node.js TypeScript service that bridges WhatsApp messages to Geneline-X AI and relays responses back.
 
 ## Access the Bot
 
 **You can access the bot on this number: +23275332939**
 
-Simply send a WhatsApp message to this number to start chatting with the AI health assistant.
+Simply send a WhatsApp message to this number to start chatting with Kai.
+
+## 📊 Admin Dashboard
+
+Real-time command center for health officials to monitor Kai's performance and handle high-risk escalations.
+
+**Live URL:** [https://admin-dashboard-omega-jade-64.vercel.app/](https://admin-dashboard-omega-jade-64.vercel.app/)
+
+**Key Features:**
+- 🚨 **Live Escalation Queue**: Instant alerts for emergency cases detected by the AI.
+- 📈 **Epidemiological Insights**: Tracking of symptom clusters across districts.
+- 🩺 **Human-in-the-Loop**: Clinical intervention capability.
+- ⚡ **Real-time Metrics**: 10-second refresh for message trends and system status.
 
 ## Features
 
-- ✅ **Custom Agent Framework** - Intelligent conversation orchestration with tool calling (built on Geneline-X)
-- ✅ **Conversation Memory** - Maintains context across messages (configurable history limit)
+- 🧠 **Agentic Reasoning Loop** - Multi-iteration recursive logic (built on Geneline-X)
+- 📍 **Intelligent Location Engine** - Hybrid GPS/NLP town extraction for West African spatial addressing
+- 🗣️ **Krio-First NLP** - Phonetic fuzzy matching and audio-to-intent translation
+- 📏 **Proactive Triage** - Automated clinical severity classification (Emergency, Urgent, Moderate, Routine)
+- ✅ **Conversation Memory** - Maintains context across messages
 - ✅ **Knowledge Search Tool** - Queries Geneline-X knowledge base when needed
-- ✅ **Multi-Step Reasoning** - Agent can make multiple tool calls to answer complex questions
 - ✅ **WhatsApp Integration** - Uses `whatsapp-web.js` with LocalAuth for persistent sessions
-- ✅ **Geneline-X AI** - Connects to Geneline-X message endpoint with streaming support
-- ✅ **Document Ingestion** - Upload PDFs to train the chatbot's knowledge base
-- ✅ **Topic Restriction** - Configurable system prompt to restrict responses to specific topics (default: Sierra Leone public health)
+- ✅ **Voice & Media Support** - Downloads and processes voice notes and images
 - ✅ **Queue System** - In-memory FIFO queue with per-chat rate limiting
-- ✅ **Retry Logic** - Exponential backoff for 429/5xx errors
-- ✅ **Media Support** - Downloads and forwards media attachments
-- ✅ **Admin API** - REST endpoints for management and monitoring
-- ✅ **Structured Logging** - Winston-based logging with event types
-- ✅ **TypeScript** - Full type safety and modern ES2020 features
-- ✅ **Railway Ready** - Optimized for Railway deployment with Docker support
+- ✅ **Admin Dashboard** - [Live monitoring and escalation queue](https://admin-dashboard-omega-jade-64.vercel.app/)
+- ✅ **Structured Logging** - Winston-based logging with event-driven auditing
+- ✅ **Railway Ready** - Optimized for Railway/VPS deployment with Docker support
 
 ## Prerequisites
 
@@ -165,7 +174,7 @@ Get bot connection status and queue metrics.
   "whatsapp": {
     "isReady": true,
     "clientInfo": {
-      "pushname": "Bot Name",
+      "pushname": "Kai",
       "platform": "android"
     }
   },
@@ -312,7 +321,7 @@ GENELINE_SYSTEM_PROMPT=""
 - "Who won the football match?"
 - "What's the capital of France?"
 
-When users ask off-topic questions, the bot will politely explain its purpose and encourage them to ask public health-related questions about Sierra Leone.
+When users ask off-topic questions, Kai will politely explain its purpose and encourage them to ask public health-related questions about Sierra Leone.
 
 ## Knowledge Base Management
 
@@ -523,34 +532,28 @@ Ingestion-related environment variables:
 ## Architecture
 
 ```
-┌─────────────┐
-│  WhatsApp   │
-│   Client    │
-└──────┬──────┘
-       │ message event
-       ▼
-┌─────────────┐
-│   Message   │
-│   Handler   │
-└──────┬──────┘
-       │ enqueue
-       ▼
-┌─────────────┐
-│    Queue    │
-│   Manager   │
-└──────┬──────┘
+┌─────────────┐      ┌─────────────────────────┐
+│  WhatsApp   │      │   Intelligent Engine    │
+│   Client    │      │  (Multi-Iteration Loop) │
+└──────┬──────┘      └────────────┬────────────┘
+       │ message event            │
+       ▼                          │
+┌─────────────┐      ┌────────────┴────────────┐
+│   Message   │      │   Specialized Tools     │
+│   Handler   │◀─────┤  (Location, Triage, KB) │
+└──────┬──────┘      └────────────┬────────────┘
+       │ enqueue                  │
+       ▼                          │
+┌─────────────┐      ┌────────────┴────────────┐
+│    Queue    │      │     Geneline-X AI       │
+│   Manager   │─────▶│  (Recursive Reasoning)   │
+└──────┬──────┘      └─────────────────────────┘
        │ process
        ▼
-┌─────────────┐      ┌─────────────┐
-│   Message   │─────▶│  Geneline-X │
-│   Worker    │◀─────│  API Client │
-└──────┬──────┘      └─────────────┘
-       │ response
-       ▼
-┌─────────────┐
-│  WhatsApp   │
-│   Client    │
-└─────────────┘
+┌─────────────┐      ┌─────────────────────────┐
+│   Admin     │      │     Supabase / DB       │
+│ Dashboard   │◀─────┤  (Audit & Escalations)  │
+└─────────────┘      └─────────────────────────┘
 ```
 
 ## Logging
@@ -567,10 +570,9 @@ Logs are output to console in development (colorized) and JSON in production.
 
 ## Limitations
 
-- **In-Memory Queue**: Queue state is lost on restart (no Redis/BullMQ)
-- **No Database**: Message history is not persisted
-- **No Docker**: Manual deployment required
-- **Single Instance**: Cannot horizontally scale without Redis
+- **In-Memory Queue**: Temporary queue state for active messages (persistent logging in DB).
+- **Single Instance**: Horizontally scales via independent regional nodes (distributed architecture).
+- **Geographic Focus**: Optimized for West African context and Sierra Leone clinical guidelines.
 
 ## Troubleshooting
 
