@@ -252,15 +252,17 @@ export class VoiceService {
         speakerId: number = 0
     ): Promise<TTSResult> {
         try {
+            const cleanText = this.cleanTextForSpeech(text);
+
             logger.info('Synthesizing speech via Kay', {
-                textLength: text.length,
+                textLength: cleanText.length,
                 speakerId,
             });
 
             const response = await axios.post(
                 `${this.apiHost}/api/v1/tts/audio`,
                 {
-                    text,
+                    text: cleanText,
                     speaker_id: speakerId,
                     do_sample: true,
                     temperature: 0.5,
@@ -314,8 +316,7 @@ export class VoiceService {
                 return { success: false, error: 'Google TTS API Key is not configured' };
             }
 
-            // Remove markdown formatting like * (used for bolding) for cleaner speech
-            const cleanText = text.replace(/\*/g, '');
+            const cleanText = this.cleanTextForSpeech(text);
 
             logger.info('Synthesizing speech via Google', {
                 textLength: cleanText.length,
@@ -496,6 +497,39 @@ export class VoiceService {
         }
 
         return results;
+    }
+
+    /**
+     * Clean text for speech synthesis by removing URLs and markdown links
+     * while preserving link labels.
+     */
+    private cleanTextForSpeech(text: string): string {
+        if (!text) return '';
+
+        return text
+            // 1. Remove markdown links but keep the label: [Label](URL) -> Label
+            .replace(/\[([^\]]+)\]\(https?:\/\/[^\s)]+\)/g, '$1')
+
+            // 2. Remove raw URLs: https://... -> ""
+            .replace(/https?:\/\/[^\s]+/g, '')
+
+            // 3. Remove markdown formatting like * or _
+            .replace(/[\*_]/g, '')
+
+            // 4. Remove emoji variations and some special symbols that sound weird in TTS
+            .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
+
+            // 5. Replace one or more newlines with a single dot and space for better pauses
+            .replace(/\n+/g, '. ')
+
+            // 6. Clean up multiple spaces
+            .replace(/\s+/g, ' ')
+
+            // 7. Prevent redundant dots (e.g., from original dots followed by newline dots)
+            .replace(/\.\s+\./g, '.')
+            .replace(/\.+/g, '.')
+
+            .trim();
     }
 }
 

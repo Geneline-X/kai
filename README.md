@@ -12,7 +12,8 @@ Simply send a WhatsApp message to this number to start chatting with Kai.
 
 Real-time command center for health officials to monitor Kai's performance and handle high-risk escalations.
 
-**Live URL:** [https://admin-dashboard-omega-jade-64.vercel.app/](https://admin-dashboard-omega-jade-64.vercel.app/)
+**Live URL:** [https://admin-dashboard-omega-jade-64.vercel.app/](https://admin-dashboard-omega-jade-64.vercel.app/)  
+**GitHub:** [https://github.com/Jmsandi/whatsappbot-adminDashboard](https://github.com/Jmsandi/whatsappbot-adminDashboard)
 
 **Key Features:**
 - 🚨 **Live Escalation Queue**: Instant alerts for emergency cases detected by the AI.
@@ -33,7 +34,7 @@ Real-time command center for health officials to monitor Kai's performance and h
 - ✅ **Queue System** - In-memory FIFO queue with per-chat rate limiting
 - ✅ **Admin Dashboard** - [Live monitoring and escalation queue](https://admin-dashboard-omega-jade-64.vercel.app/)
 - ✅ **Structured Logging** - Winston-based logging with event-driven auditing
-- ✅ **Railway Ready** - Optimized for Railway/VPS deployment with Docker support
+- 🐳 **VPS/Docker Ready** - Optimized for VPS deployment with Docker support
 
 ## Prerequisites
 
@@ -83,47 +84,26 @@ npm run build
 npm start
 ```
 
-### Deploy to Railway
+### Deploy to VPS
 
-This project is optimized for Railway deployment with automatic Docker builds.
+This project is optimized for VPS deployment with Docker support. For detailed VPS deployment instructions, see the deployment guide.
 
-**Quick Deploy:**
+**Docker Deployment:**
 
-1. **Push to GitHub** (already done):
-   ```bash
-   git push origin main
-   ```
+```bash
+# Build the Docker image
+docker build -t whatsapp-geneline-bridge .
 
-2. **Deploy on Railway**:
-   - Go to [railway.app](https://railway.app)
-   - Click "New Project" → "Deploy from GitHub repo"
-   - Select `Jmsandi/whatsappbot`
-   - Railway will automatically detect the Dockerfile and build
-
-3. **Set Environment Variables** in Railway dashboard:
-   ```
-   GENELINE_HOST=https://message.geneline-x.net
-   GENELINE_API_KEY=your-api-key
-   GENELINE_CHATBOT_ID=your-chatbot-id
-   ADMIN_API_KEY=your-admin-secret
-   ENABLE_AGENT_MODE=true
-   NODE_ENV=production
-   ```
-
-4. **Add Persistent Volume** (important for WhatsApp sessions):
-   - In Railway project settings → "Volumes"
-   - Mount path: `/app/.wwebjs_auth`
-   - This prevents re-scanning QR code on every deploy
-
-5. **Access QR Code**:
-   - Once deployed, visit: `https://your-app.railway.app/qr`
-   - Scan with WhatsApp to authenticate
-
-**Railway Configuration Files:**
-- `railway.json` - Build and deploy configuration
-- `Dockerfile` - Container with Chromium dependencies for Puppeteer
-- `.dockerignore` - Optimizes build size
-- `.env.railway` - Template for environment variables
+# Run with environment variables
+docker run -d \
+  -p 3000:3000 \
+  -v $(pwd)/.wwebjs_auth:/app/.wwebjs_auth \
+  -e GENELINE_HOST=https://message.geneline-x.net \
+  -e GENELINE_API_KEY=your-api-key \
+  -e GENELINE_CHATBOT_ID=your-chatbot-id \
+  --name kai-bot \
+  whatsapp-geneline-bridge
+```
 
 
 ### Initial Setup - WhatsApp Pairing
@@ -631,6 +611,30 @@ Output is in `dist/` directory.
 ```bash
 npm run clean
 ```
+
+## Changelog
+
+### v1.0.3 - Voice Optimization (2026-01-10)
+- 🎙️ **Voice Response Enhancement**: TTS now intelligently strips URLs and markdown links
+  - Markdown links like `[Get Directions](URL)` are read as just "Get Directions"
+  - Raw URLs are completely removed from audio output
+  - Improved natural pausing with newline-to-dot conversion
+  - Cleaned formatting (asterisks, underscores, emojis)
+- 🧹 **Codebase Cleanup**: Removed 20+ test files, debug scripts, and deprecated deployment configs
+  - Production-ready repository structure
+  - Removed Railway/Render deployment files (VPS-only now)
+
+### v1.0.2 - Location Search Fix (2026-01-09)
+- 📍 **Intelligent Location Engine**: Keyword-based search with fuzzy matching
+  - Handles dialect-heavy queries like "Segbwema District" correctly
+  - Reverse substring matching for better accuracy
+  - No-guess policy prevents AI coordinate hallucinations
+
+### v1.0.1 - Initial Production Release
+- ✅ Core agentic reasoning loop with Geneline-X
+- ✅ Krio NLP and voice transcription
+- ✅ Admin dashboard integration
+- ✅ Symptom triage and escalation system
 
 ## License
 
