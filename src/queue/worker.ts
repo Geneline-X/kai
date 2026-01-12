@@ -288,7 +288,7 @@ export class MessageWorker {
 
         // Detect and track intent (use processed/translated text)
         const { detectAndTrackIntent } = await import('../utils/intent-detector');
-        const intentResult = await detectAndTrackIntent(processedText, messageId);
+        const intentResult = await detectAndTrackIntent(processedText, message.dbMessageId || messageId);
 
         logger.debug('User context retrieved for agent processing', {
             chatId,
@@ -354,6 +354,14 @@ export class MessageWorker {
         const aiResponse = await this.genelineClient.sendMessage(request);
 
         logEvent.aiResponseReceived(chatId, messageId, aiResponse.length);
+
+        // Detect and track intent (use processed text)
+        try {
+            const { detectAndTrackIntent } = await import('../utils/intent-detector');
+            await detectAndTrackIntent(messageText, message.dbMessageId || messageId);
+        } catch (intentError) {
+            logger.error('Failed to detect intent in direct mode', intentError as Error);
+        }
 
         // Send response (voice or text based on original message type)
         return this.sendResponseWithVoice(chatId, messageId, aiResponse, isVoiceMessage);

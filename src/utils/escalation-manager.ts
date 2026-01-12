@@ -379,7 +379,8 @@ export async function createEscalationRecord(
     userId: string,
     reason: string,
     urgencyLevel: 'emergency' | 'urgent' | 'normal',
-    latestMessage: string
+    latestMessage: string,
+    conversationSummary?: string
 ): Promise<string | null> {
     try {
         const supabase = getSupabaseClient();
@@ -392,6 +393,8 @@ export async function createEscalationRecord(
             .insert({
                 user_id: userId,
                 reason: reason,
+                conversation_summary: conversationSummary,
+                trigger_message: latestMessage,
                 trigger_type: 'user_request',
                 priority: priority,
                 status: 'pending'

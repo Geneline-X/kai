@@ -25,6 +25,8 @@ export interface QueuedMessage {
         latitude: number;
         longitude: number;
     };
+    /** Database message UUID */
+    dbMessageId?: string;
 }
 
 interface QueueStats {

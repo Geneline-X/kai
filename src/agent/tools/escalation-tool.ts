@@ -118,12 +118,12 @@ export const createEscalationTool = (): Tool => {
 Once you provide your number, I will immediately forward your case to an available health worker.`;
                 }
 
-                // Create escalation record in database
                 const escalationId = await createEscalationRecord(
                     user_id,
                     reason,
                     urgency,
-                    latest_message
+                    latest_message,
+                    conversation_summary
                 );
 
                 if (!escalationId) {

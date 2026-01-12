@@ -273,10 +273,14 @@ export class MessageHandler {
             }
 
             // Now store user message with the confirmed userId
+            let dbMessageId: string | undefined;
             if (userId) {
-                this.storeUserMessageWithUserId(userId, messageText).catch(err => {
+                try {
+                    const id = await this.storeUserMessageWithUserId(userId, messageText);
+                    if (id) dbMessageId = id;
+                } catch (err) {
                     logger.error('Failed to store user message', err);
-                });
+                }
             }
 
             // Check if message is a button response (1, 2, 3, or 4)
@@ -323,6 +327,7 @@ export class MessageHandler {
                 timestamp: Date.now(),
                 isVoiceMessage,
                 voiceAudioBuffer: messageResult.audioBuffer,
+                dbMessageId,
             });
         } catch (error) {
             logger.error('Failed to handle message', error as Error, {
