@@ -54,6 +54,7 @@ export const HEALTH_INTENTS = {
     MENTAL_HEALTH: { name: 'Mental Health', keywords: ['mental', 'depression', 'anxiety', 'stress', 'suicide', 'suicidal', 'trauma', 'grief', 'sad', 'cannot sleep', 'worry', 'madness', 'psychology'] },
     SGBV_QUERY: { name: 'SGBV Query', keywords: ['rape', 'sexual assault', 'domestic violence', 'abuse', 'beating', 'violence', 'hurt by partner', 'forced sex', 'harassment'] },
     STI_HIV_QUERY: { name: 'STI/HIV Query', keywords: ['sti', 'std', 'hiv', 'aids', 'syphilis', 'gonorrhea', 'discharge', 'sore on private part', 'burning sensation', 'safe sex', 'condom'] },
+    SEXUAL_ANATOMY: { name: 'Sexual Anatomy', keywords: ['penis', 'vagina', 'anatomy', 'size', 'growth', 'development', 'body change', 'puberty', 'erection'] },
 
     // WASH and Environment
     WASH_QUERY: { name: 'WASH Query', keywords: ['water', 'sanitation', 'toilet', 'hygiene', 'latrine', 'garbage', 'waste', 'dirty water', 'handwash', 'soap', 'chlorine', 'clean wata'] },

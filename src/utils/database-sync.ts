@@ -243,3 +243,52 @@ export async function updateBotSetting(key: string, value: string, updatedBy: st
         logger.error('Error updating bot setting', error as Error);
     }
 }
+
+/**
+ * Get user information including last greeting date
+ */
+export async function getUserGreetingInfo(userId: string): Promise<{ last_greeting_date: string | null } | null> {
+    try {
+        const supabase = getSupabaseClient();
+
+        const { data, error } = await supabase
+            .from('users')
+            .select('last_greeting_date')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            logger.error('Failed to get user greeting info', error);
+            return null;
+        }
+
+        return data;
+    } catch (error) {
+        logger.error('Error getting user greeting info', error as Error);
+        return null;
+    }
+}
+
+/**
+ * Update user last greeting date to today
+ */
+export async function updateUserGreetingDate(userId: string): Promise<void> {
+    try {
+        const supabase = getSupabaseClient();
+        const today = new Date().toISOString().split('T')[0];
+
+        const { error } = await supabase
+            .from('users')
+            .update({
+                last_greeting_date: today,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (error) {
+            logger.error('Failed to update user greeting date', error);
+        }
+    } catch (error) {
+        logger.error('Error updating user greeting date', error as Error);
+    }
+}

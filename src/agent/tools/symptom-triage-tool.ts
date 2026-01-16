@@ -170,6 +170,14 @@ const symptomDatabase: Record<string, SymptomGuidance> = {
         krioHomeCare: ['It smɔl smɔl layt it', 'Drink plenty wata', 'Liav pɛpɛ ɛn ɔyli it', 'Res'],
         referralNeeded: false,
     },
+    'weakness': {
+        urgency: 'moderate',
+        englishAdvice: 'Feeling weak can be caused by many things like lack of rest, dehydration, or a mild illness. Focus on rest and nutrition.',
+        krioAdvice: 'If yu bɔdi de wik, i gɛt plenty rizin. Mek yu res bɛta ɛn drink plenty wata.',
+        homeCare: ['Get plenty of rest', 'Drink plenty of fluids (water, ORS, light soup)', 'Eat small, frequent, nutritious meals', 'Monitor for other symptoms like fever'],
+        krioHomeCare: ['Res gud gud', 'Drink plenty wata, ORS, ɔ layt sup', 'It bɛta it smɔl smɔl bɔt ɔltɛm', 'Wach if yu gɛt ɔda tin dɛn lek fiba'],
+        referralNeeded: false,
+    },
 };
 
 // Map common symptom descriptions to database keys
@@ -258,6 +266,11 @@ const symptomMapping: Record<string, string> = {
     'stomach pain': 'mild_stomach',
     'tummy ache': 'mild_stomach',
     'belly pain': 'mild_stomach',
+    'weak': 'weakness',
+    'weakness': 'weakness',
+    'bodi wik': 'weakness',
+    'tired': 'weakness',
+    'no get pawa': 'weakness',
 };
 
 /**

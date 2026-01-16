@@ -17,7 +17,8 @@ export class PromptBuilder {
     includeTools: boolean = true,
     userRole?: string,
     userId?: string,
-    userPhone?: string
+    userPhone?: string,
+    briefGreeting: boolean = false
   ): string {
     const systemInstructions = this.getSystemInstructions(userRole);
     const toolInstructions = includeTools ? this.getToolInstructions() : '';
@@ -30,12 +31,17 @@ USER CONTEXT (use these values for tool parameters):
 - user_phone: "${userPhone || 'unknown'}"
 ` : '';
 
+    const briefGreetingInstruction = briefGreeting ? `
+IMPORTANT: You have already greeted this user today. Respond with a very brief acknowledgment and move immediately to asking how you can help them (e.g., "I'm here—how can I help you today?"). Do NOT use your name or a full introduction.
+` : '';
+
     return `${systemInstructions}
 
 ${toolDefinitions}
 
 ${toolInstructions}
 ${userContext}
+${briefGreetingInstruction}
 ${conversationHistory}
 
 User: ${userMessage}

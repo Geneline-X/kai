@@ -229,9 +229,27 @@ export class MessageWorker {
         const { getUserRoleByPhone } = await import('../utils/role-manager');
         const userRole = await getUserRoleByPhone(phone);
 
-        // Get database userId for escalation tools
-        const { getUserIdByPhone, upsertUser } = await import('../utils/database-sync');
+        const { getUserIdByPhone, upsertUser, getUserGreetingInfo, updateUserGreetingDate } = await import('../utils/database-sync');
         const userId = await getUserIdByPhone(phone);
+
+        // Check for greeting rate limiting
+        const { detectIntent } = await import('../utils/intent-detector');
+        const intentCheck = detectIntent(processedText);
+        let briefGreeting = false;
+
+        if (intentCheck.intent === 'Greeting' && userId) {
+            const greetingInfo = await getUserGreetingInfo(userId);
+            const today = new Date().toISOString().split('T')[0];
+
+            if (greetingInfo?.last_greeting_date === today) {
+                logger.info('User already greeted today, using brief greeting', { userId, chatId });
+                briefGreeting = true;
+            } else {
+                // Not greeted today, update the date
+                logger.info('User first greeting today, using full greeting', { userId, chatId });
+                await updateUserGreetingDate(userId);
+            }
+        }
 
         // Check if user is pending phone collection (was asked for their phone number)
         const { isPendingPhoneCollection, consumePendingPhoneCollection, forwardToHealthWorkers, createEscalationRecord } = await import('../utils/escalation-manager');
@@ -299,7 +317,7 @@ export class MessageWorker {
             textWasTranslated: processedText !== messageText,
         });
 
-        const agentResponse = await this.agentLoop!.run(chatId, processedText, userRole, userId || undefined, phone);
+        const agentResponse = await this.agentLoop!.run(chatId, processedText, userRole, userId || undefined, phone, briefGreeting);
 
         logger.info('Agent processing completed', {
             chatId,

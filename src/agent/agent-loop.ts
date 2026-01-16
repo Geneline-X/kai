@@ -36,7 +36,7 @@ export class AgentLoop {
     /**
      * Run the agent loop for a user message
      */
-    async run(chatId: string, userMessage: string, userRole?: string, userId?: string, userPhone?: string): Promise<AgentResponse> {
+    async run(chatId: string, userMessage: string, userRole?: string, userId?: string, userPhone?: string, briefGreeting: boolean = false): Promise<AgentResponse> {
         logger.info('Agent loop started', {
             chatId,
             messageLength: userMessage.length,
@@ -71,7 +71,8 @@ export class AgentLoop {
                 true, // include tools
                 userRole,
                 userId,
-                userPhone
+                userPhone,
+                briefGreeting
             );
 
             // Send to Geneline-X

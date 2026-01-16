@@ -92,7 +92,7 @@ export const escalationConfig = {
         // Urgency indicators (kept from original)
         urgency: [
             'urgent', 'emergency', 'asap', 'immediately', 'help now',
-            'critical', 'important', 'right now', 'quickly', 'fast'
+            'critical', 'important', 'right now', 'quickly'
         ],
 
         // Complaint/dissatisfaction (kept from original)
