@@ -313,7 +313,7 @@ export class WhatsAppClient extends EventEmitter {
             throw new Error('WhatsApp client is not ready');
         }
 
-        await this.client.sendMessage(chatId, message);
+        await this.client.sendMessage(chatId, message, { sendSeen: false });
         logger.debug('Message sent', { chatId, messageLength: message.length });
     }
 
@@ -343,6 +343,7 @@ export class WhatsAppClient extends EventEmitter {
         try {
             await this.client.sendMessage(chatId, media, {
                 sendAudioAsVoice: true,
+                sendSeen: false,
             });
             logger.info('Voice message successfully handed off to WhatsApp', { chatId, audioSize: audioBuffer.length });
         } catch (error: any) {
