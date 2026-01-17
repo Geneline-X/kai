@@ -12,8 +12,8 @@ export const escalationConfig = {
     keywords: {
         // User requesting human assistance
         userRequest: [
-            'human', 'agent', 'person', 'real person', 'talk to someone',
-            'representative', 'customer service', 'support', 'speak to',
+            'talk to human', 'speak with a human', 'real person', 'human agent',
+            'representative', 'customer service', 'customer support', 'speak to a person',
             'connect me', 'transfer me', 'live chat', 'live agent',
             'speak to doctor', 'talk to doctor', 'real doctor',
             'speak to nurse', 'talk to nurse', 'escalate', 'supervisor'
@@ -56,9 +56,7 @@ export const escalationConfig = {
             'ct scan', 'mri result',
 
             // Medication
-            'drug dosage', 'how much medication',
-            'side effects', 'drug interaction',
-            'what medicine should i take', 'which drug',
+
 
             // Treatment
             'treatment plan', 'how to treat', 'cure for',
