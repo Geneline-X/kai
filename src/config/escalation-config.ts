@@ -56,7 +56,7 @@ export const escalationConfig = {
             'ct scan', 'mri result',
 
             // Medication
-            'drug dosage', 'how much medication', 'prescription',
+            'drug dosage', 'how much medication',
             'side effects', 'drug interaction',
             'what medicine should i take', 'which drug',
 
