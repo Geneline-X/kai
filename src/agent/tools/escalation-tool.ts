@@ -11,6 +11,7 @@ import {
     getPoliteDeclineMessage,
     isPhoneLid,
     setPendingPhoneCollection,
+    setPendingLocationCollection,
     EscalationReport
 } from '../../utils/escalation-manager';
 import { Message } from '../conversation-history';
@@ -66,6 +67,24 @@ export const createEscalationTool = (): Tool => {
                 type: 'string',
                 description: 'Summary of the recent conversation (last 10 messages)',
                 required: false,
+            },
+            {
+                name: 'location',
+                type: 'string',
+                description: 'User\'s location (area name, district, or town). If user shared GPS, this will be the resolved location name.',
+                required: false,
+            },
+            {
+                name: 'district',
+                type: 'string',
+                description: 'The district of the user (e.g., "Bo", "Kenema"). Resolved from location.',
+                required: false,
+            },
+            {
+                name: 'hospital',
+                type: 'string',
+                description: 'The nearest hospital/facility name resolved from location.',
+                required: false,
             }
         ],
         execute: async (params: {
@@ -74,14 +93,20 @@ export const createEscalationTool = (): Tool => {
             user_id: string;
             latest_message: string;
             conversation_summary?: string;
+            location?: string;
+            district?: string;
+            hospital?: string;
         }): Promise<string> => {
             try {
-                const { reason, urgency_level, user_id, latest_message, conversation_summary } = params;
+                const { reason, urgency_level, user_id, latest_message, conversation_summary, location, district, hospital } = params;
 
                 logger.info('Escalation tool invoked', {
                     userId: user_id,
                     reason,
-                    urgencyLevel: urgency_level
+                    urgencyLevel: urgency_level,
+                    location,
+                    district,
+                    hospital
                 });
 
                 // Validate urgency level
@@ -89,6 +114,36 @@ export const createEscalationTool = (): Tool => {
                 const urgency = validUrgencyLevels.includes(urgency_level)
                     ? urgency_level as 'emergency' | 'urgent' | 'normal'
                     : 'normal';
+
+                // For emergencies without location, ask for location first
+                if (urgency === 'emergency' && !location && !district) {
+                    logger.info('Emergency escalation without location - requesting location', {
+                        userId: user_id
+                    });
+
+                    // Store escalation data for after location is provided
+                    setPendingLocationCollection(user_id, {
+                        reason,
+                        urgency,
+                        latest_message,
+                        conversation_summary
+                    });
+
+                    return `🚨 This sounds like an emergency! To connect you with the nearest health worker, I need your location.
+
+Please either:
+📍 Send your WhatsApp location pin (tap the + button > Location)
+📝 Or type your area name (e.g., "Bo", "Kenema", "Freetown")
+
+This will help me find the closest hospital and the right health worker for your area.
+
+---
+🇸🇱 Na Krio:
+🚨 Dis luk lek emejɛnsi! Fɔ kɔnɛkt yu to di klos ɛlt wɔka, a nid fɔ no usay yu de.
+
+📍 Sɛn yu WhatsApp lokeshɔn pin (pres di + bɔtɔn > Location)
+📝 O tayp usay yu de (lek "Bo", "Kenema", "Freetown")`;
+                }
 
                 // Get user info (attempt to re-fetch for latest name/phone resolution)
                 const userInfo = await getUserInfoForEscalation(user_id);
@@ -109,7 +164,9 @@ export const createEscalationTool = (): Tool => {
                         reason,
                         urgency,
                         latest_message,
-                        conversation_summary
+                        conversation_summary,
+                        district,
+                        hospital
                     });
 
                     // Ask user for their phone number
@@ -130,7 +187,7 @@ Once you provide your number, I will immediately forward your case to an availab
                     logger.error('Failed to create escalation record', { userId: user_id });
                 }
 
-                // Build the escalation report
+                // Build the escalation report with location info
                 const report: EscalationReport = {
                     userId: user_id,
                     userPhone: userInfo.phone,
@@ -139,7 +196,9 @@ Once you provide your number, I will immediately forward your case to an availab
                     conversationSummary: conversation_summary || 'No conversation summary available.',
                     latestMessage: latest_message,
                     timestamp: new Date().toISOString(),
-                    urgencyLevel: urgency
+                    urgencyLevel: urgency,
+                    district: district,
+                    hospital: hospital
                 };
 
                 // Store for later forwarding (the actual forwarding happens in the message handler)
@@ -154,7 +213,9 @@ Once you provide your number, I will immediately forward your case to an availab
                 logger.info('Escalation prepared for forwarding', {
                     userId: user_id,
                     escalationId,
-                    urgencyLevel: urgency
+                    urgencyLevel: urgency,
+                    district,
+                    hospital
                 });
 
                 // Return the confirmation message

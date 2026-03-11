@@ -871,7 +871,7 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
     router.post('/api/contacts', requireAdminAuth, async (req: Request, res: Response) => {
         try {
             const supabase = getSupabaseClient();
-            const { name, phone, email, role } = req.body;
+            const { name, phone, email, role, district, hospital } = req.body;
 
             if (!name || !phone || !role) {
                 res.status(400).json({
@@ -883,7 +883,7 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
 
             const { data, error } = await supabase
                 .from('special_contacts')
-                .insert({ name, phone, email, role, status: 'active' })
+                .insert({ name, phone, email, role, status: 'active', district: district || null, hospital: hospital || null })
                 .select()
                 .single();
 
@@ -909,7 +909,7 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
         try {
             const supabase = getSupabaseClient();
             const { id } = req.params;
-            const { name, phone, email, role, status } = req.body;
+            const { name, phone, email, role, status, district, hospital } = req.body;
 
             const updateData: any = { updated_at: new Date().toISOString() };
             if (name) updateData.name = name;
@@ -917,6 +917,8 @@ export function createAdminRouter(deps: AdminRouterDeps): Router {
             if (email !== undefined) updateData.email = email;
             if (role) updateData.role = role;
             if (status) updateData.status = status;
+            if (district !== undefined) updateData.district = district || null;
+            if (hospital !== undefined) updateData.hospital = hospital || null;
 
             const { data, error } = await supabase
                 .from('special_contacts')

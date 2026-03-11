@@ -59,6 +59,20 @@ class Application {
             await this.messageHandler.handleMessage(message);
         });
 
+        // Start broadcast scheduler ONLY when WhatsApp is ready
+        this.whatsappClient.on('ready', () => {
+            if (!this.broadcastCronJob) {
+                this.broadcastCronJob = cron.schedule('* * * * *', async () => {
+                    try {
+                        await checkAndSendBroadcasts(this.whatsappClient);
+                    } catch (error) {
+                        logger.error('Error in broadcast cron job', error as Error);
+                    }
+                });
+                logger.info('✓ Broadcast scheduler started (runs every minute)');
+            }
+        });
+
         // Setup API routes
         const router = createAdminRouter({
             whatsappClient: this.whatsappClient,
@@ -94,21 +108,10 @@ class Application {
 
             // Initialize WhatsApp client
             await this.whatsappClient.initialize();
-            logger.info('✓ WhatsApp client initialized');
-
-            // Start broadcast scheduler after WhatsApp is ready
-            // Start broadcast scheduler (runs every minute)
-            this.broadcastCronJob = cron.schedule('* * * * *', async () => {
-                try {
-                    await checkAndSendBroadcasts(this.whatsappClient);
-                } catch (error) {
-                    logger.error('Error in broadcast cron job', error as Error);
-                }
-            });
-            logger.info('✓ Broadcast scheduler started (runs every minute)');
+            logger.info('✓ WhatsApp client initialization command sent');
 
             logger.info('Application started successfully');
-            logger.info(`Version: 1.0.3 (voice Fix v2)`);
+            logger.info(`Version: 1.0.8 (voice Fix v3)`);
             logger.info(`Environment: ${config.nodeEnv}`);
             logger.info(`Geneline-X Host: ${config.geneline.host}`);
             logger.info(`Max Concurrency: ${config.queue.maxConcurrency}`);

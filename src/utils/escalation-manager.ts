@@ -16,6 +16,8 @@ export interface EscalationReport {
     latestMessage: string;
     timestamp: string;
     urgencyLevel: 'emergency' | 'urgent' | 'normal';
+    district?: string;
+    hospital?: string;
 }
 
 export interface HealthWorkerContact {
@@ -23,6 +25,8 @@ export interface HealthWorkerContact {
     phone: string;
     name: string;
     role: string;
+    district?: string;
+    hospital?: string;
 }
 
 // Track escalation requests per user to handle "insistence"
@@ -138,6 +142,44 @@ export function consumePendingPhoneCollection(userId: string): any | null {
     return pending.escalationData;
 }
 
+// Track users we're waiting for location from (for emergency escalation)
+const pendingLocationCollection = new Map<string, { escalationData: any; timestamp: number }>();
+
+/**
+ * Mark a user as pending location collection for emergency escalation
+ */
+export function setPendingLocationCollection(userId: string, escalationData: any): void {
+    pendingLocationCollection.set(userId, {
+        escalationData,
+        timestamp: Date.now()
+    });
+    logger.info('Waiting for user to provide location for emergency escalation', { userId });
+}
+
+/**
+ * Check if a user is pending location collection
+ */
+export function isPendingLocationCollection(userId: string): boolean {
+    const pending = pendingLocationCollection.get(userId);
+    if (!pending) return false;
+    // Expire after 10 minutes (emergencies may take a moment)
+    if (Date.now() - pending.timestamp > 10 * 60 * 1000) {
+        pendingLocationCollection.delete(userId);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Get and clear pending location collection data
+ */
+export function consumePendingLocationCollection(userId: string): any | null {
+    const pending = pendingLocationCollection.get(userId);
+    if (!pending) return null;
+    pendingLocationCollection.delete(userId);
+    return pending.escalationData;
+}
+
 /**
  * Simple phone number formatting utility
  */
@@ -178,11 +220,19 @@ export function formatEscalationReport(report: EscalationReport): string {
 
     const formattedPhone = formatPhoneNumber(report.userPhone);
 
+    // Build location line if available
+    const locationParts: string[] = [];
+    if (report.hospital) locationParts.push(`🏥 Hospital: ${report.hospital}`);
+    if (report.district) locationParts.push(`📍 District: ${report.district}`);
+    const locationSection = locationParts.length > 0
+        ? `\n${locationParts.join('\n')}\n`
+        : '';
+
     return `${urgencyEmoji[report.urgencyLevel]} REPORT
 
 👤 User: ${report.userName || 'Unknown User'}
 📱 Phone: ${formattedPhone}
-🕐 Time: ${report.timestamp}
+🕐 Time: ${report.timestamp}${locationSection}
 
 📝 REASON:
 ${report.reason}
@@ -228,7 +278,7 @@ export async function getHealthWorkerContacts(): Promise<HealthWorkerContact[]> 
         // Note: Role values match the database CHECK constraint: 'Admin', 'Health Worker', 'Supervisor', 'Support'
         const { data, error } = await supabase
             .from('special_contacts')
-            .select('id, phone, name, role')
+            .select('id, phone, name, role, district, hospital')
             .in('role', ['Health Worker', 'Supervisor', 'Admin'])
             .eq('status', 'active');
 
@@ -251,6 +301,56 @@ export async function getHealthWorkerContacts(): Promise<HealthWorkerContact[]> 
 }
 
 /**
+ * Get health worker contacts filtered by location (district/hospital)
+ * Falls back to ALL contacts if no location-specific contacts exist
+ */
+export async function getHealthWorkerContactsByLocation(
+    district?: string,
+    hospital?: string
+): Promise<{ contacts: HealthWorkerContact[]; isLocationMatch: boolean }> {
+    const allContacts = await getHealthWorkerContacts();
+
+    if (!district && !hospital) {
+        return { contacts: allContacts, isLocationMatch: false };
+    }
+
+    // Try to find contacts matching the location
+    let locationContacts: HealthWorkerContact[] = [];
+
+    if (hospital) {
+        // First try exact hospital match
+        locationContacts = allContacts.filter(c =>
+            c.hospital && c.hospital.toLowerCase() === hospital.toLowerCase()
+        );
+    }
+
+    if (locationContacts.length === 0 && district) {
+        // Fall back to district match
+        locationContacts = allContacts.filter(c =>
+            c.district && c.district.toLowerCase() === district.toLowerCase()
+        );
+    }
+
+    if (locationContacts.length > 0) {
+        logger.info('Location-specific contacts found for escalation', {
+            district,
+            hospital,
+            matchedContacts: locationContacts.length,
+            totalContacts: allContacts.length
+        });
+        return { contacts: locationContacts, isLocationMatch: true };
+    }
+
+    // Fallback: no location-specific contacts, use ALL contacts
+    logger.info('No location-specific contacts found, falling back to all contacts', {
+        district,
+        hospital,
+        totalContacts: allContacts.length
+    });
+    return { contacts: allContacts, isLocationMatch: false };
+}
+
+/**
  * Forward escalation to health workers via WhatsApp
  * Returns the list of contacts that were notified
  */
@@ -259,7 +359,11 @@ export async function forwardToHealthWorkers(
     sendMessageFn: (chatId: string, message: string) => Promise<void>
 ): Promise<{ success: boolean; notifiedContacts: string[] }> {
     try {
-        const healthWorkers = await getHealthWorkerContacts();
+        // Use location-based filtering if location is available
+        const { contacts: healthWorkers, isLocationMatch } = await getHealthWorkerContactsByLocation(
+            report.district,
+            report.hospital
+        );
 
         if (healthWorkers.length === 0) {
             logger.warn('No health worker contacts found for escalation forwarding');
@@ -269,7 +373,7 @@ export async function forwardToHealthWorkers(
         const formattedReport = formatEscalationReport(report);
         const notifiedContacts: string[] = [];
 
-        // Send to all health workers
+        // Send to filtered health workers (location-based or all as fallback)
         for (const worker of healthWorkers) {
             try {
                 // Clean phone number: remove +, spaces, and any non-digit characters
@@ -281,7 +385,10 @@ export async function forwardToHealthWorkers(
                 logger.info('Escalation forwarded to health worker', {
                     workerPhone: worker.phone,
                     workerName: worker.name,
-                    userId: report.userId
+                    workerDistrict: worker.district,
+                    workerHospital: worker.hospital,
+                    userId: report.userId,
+                    isLocationMatch
                 });
             } catch (error) {
                 logger.error('Failed to forward escalation to worker', error as Error, {
@@ -292,6 +399,14 @@ export async function forwardToHealthWorkers(
 
         // Also update the escalation record in database
         await updateEscalationWithForwarding(report.userId, notifiedContacts);
+
+        logger.info('Escalation forwarding complete', {
+            userId: report.userId,
+            district: report.district,
+            hospital: report.hospital,
+            isLocationMatch,
+            notifiedCount: notifiedContacts.length
+        });
 
         return {
             success: notifiedContacts.length > 0,

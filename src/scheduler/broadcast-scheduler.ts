@@ -44,6 +44,12 @@ export async function checkAndSendBroadcasts(whatsappClient: WhatsAppClient): Pr
 
         const broadcastSettings = settings as BroadcastSettings;
 
+        // Check if client is ready
+        if (!whatsappClient.getState().isReady) {
+            logger.debug('Broadcast scheduler: WhatsApp client not ready yet, skipping check');
+            return;
+        }
+
         // Check if auto-send is enabled
         if (!broadcastSettings.auto_send_enabled) {
             logger.debug('Auto-send is disabled');

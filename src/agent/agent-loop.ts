@@ -90,24 +90,29 @@ export class AgentLoop {
                     responseLength: response.length,
                 });
 
-                // Add assistant response to history
+                // Clean the response - remove any [ESCALATE: ...] markers before showing to user
+                let cleanResponse = response.replace(/\[ESCALATE:\s*[^\]]+\]/gi, '').trim();
+                // Also remove double spaces that might result
+                cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
+
+                // Add assistant response to history (clean version)
                 this.conversationHistory.addMessage(chatId, {
                     role: 'assistant',
-                    content: response,
+                    content: cleanResponse,
                     timestamp: Date.now(),
                 });
 
-                // Check if escalation is needed
+                // Check if escalation is needed (using original response with markers)
                 const escalationCheck = await this.checkForEscalation(
                     chatId,
                     userMessage,
-                    response,
+                    response,  // Use original to detect markers
                     iterations,
                     userRole
                 );
 
                 return {
-                    response,
+                    response: cleanResponse,  // Return clean response to user
                     toolCallsCount,
                     iterations,
                     ...escalationCheck
@@ -238,21 +243,40 @@ export class AgentLoop {
                 };
             }
 
-            // NEW: Check if AI response indicates escalation is needed
-            // AI will include "[ESCALATE: reason]" in response if human intervention needed
+            // Check if AI response indicates escalation is needed via [ESCALATE: reason] marker
+            // Only escalate for TRUE EMERGENCIES - stricter check
             const escalationMarker = aiResponse.match(/\[ESCALATE:\s*([^\]]+)\]/i);
             if (escalationMarker) {
-                const reason = escalationMarker[1].trim();
-                logger.info('AI-determined escalation needed', {
-                    chatId,
-                    userRole,
-                    reason
-                });
-                return {
-                    shouldEscalate: true,
-                    escalationReason: `AI assessment: ${reason}`,
-                    confidence: 0.8
-                };
+                const reason = escalationMarker[1].trim().toLowerCase();
+
+                // Only escalate for actual emergency keywords
+                const emergencyKeywords = [
+                    'emergency', 'unconscious', 'not breathing', 'cannot breathe',
+                    'severe bleeding', 'seizure', 'stroke', 'suicidal', 'suicide',
+                    'self-harm', 'dying', 'heart attack', 'chest pain'
+                ];
+
+                const isRealEmergency = emergencyKeywords.some(kw => reason.includes(kw));
+
+                if (isRealEmergency) {
+                    logger.info('AI-determined escalation needed (emergency)', {
+                        chatId,
+                        userRole,
+                        reason: escalationMarker[1].trim()
+                    });
+                    return {
+                        shouldEscalate: true,
+                        escalationReason: `AI assessment: ${escalationMarker[1].trim()}`,
+                        confidence: 0.8
+                    };
+                } else {
+                    // Not a real emergency - log but don't escalate
+                    logger.info('AI included escalation marker but NOT a true emergency - ignoring', {
+                        chatId,
+                        userRole,
+                        reason: escalationMarker[1].trim()
+                    });
+                }
             }
 
             // DISABLED: Automatic escalation based on AI uncertainty

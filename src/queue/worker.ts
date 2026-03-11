@@ -304,6 +304,128 @@ export class MessageWorker {
             }
         }
 
+        // Check if user is pending location collection (was asked for their location during emergency)
+        const { isPendingLocationCollection, consumePendingLocationCollection } = await import('../utils/escalation-manager');
+        if (userId && isPendingLocationCollection(userId)) {
+            logger.info('User is pending location collection for emergency', { userId, chatId });
+
+            const { getLocationService } = await import('../services/location-service');
+            const locationService = getLocationService();
+
+            let resolvedDistrict: string | undefined;
+            let resolvedHospital: string | undefined;
+            let nearestHospitalInfo: string = '';
+
+            // Check if this message contains GPS coordinates (from WhatsApp location pin)
+            if (message.location) {
+                const { latitude, longitude } = message.location;
+                logger.info('User provided GPS location for emergency', { userId, latitude, longitude });
+
+                // Find nearest hospital using GPS
+                const nearestFacilities = locationService.findNearestFacilities(
+                    { latitude, longitude },
+                    3,
+                    'HOSPITAL'
+                );
+
+                if (nearestFacilities.length > 0) {
+                    const nearest = nearestFacilities[0];
+                    resolvedDistrict = nearest.facility.district;
+                    resolvedHospital = nearest.facility.facility;
+                    nearestHospitalInfo = `🏥 Nearest hospital: ${nearest.facility.facility} (${nearest.distance.toFixed(1)} km)\n📍 ${nearest.facility.district} District, ${nearest.facility.community}\n🗺️ https://maps.google.com/?q=${nearest.facility.lat},${nearest.facility.long}`;
+                } else {
+                    // No hospital found, try any facility type
+                    const anyFacilities = locationService.findNearestFacilities(
+                        { latitude, longitude },
+                        3
+                    );
+                    if (anyFacilities.length > 0) {
+                        resolvedDistrict = anyFacilities[0].facility.district;
+                        resolvedHospital = anyFacilities[0].facility.facility;
+                        nearestHospitalInfo = `🏥 Nearest facility: ${anyFacilities[0].facility.facility} (${anyFacilities[0].distance.toFixed(1)} km)\n📍 ${anyFacilities[0].facility.district} District`;
+                    }
+                }
+            } else {
+                // Text-based location - try to match to a district/facility
+                const textQuery = processedText.trim();
+                logger.info('User provided text location for emergency', { userId, textQuery });
+
+                // First try to find hospitals matching the text
+                const textResults = locationService.findFacilitiesByText(textQuery, 5);
+
+                if (textResults.length > 0) {
+                    // Use the first result's district
+                    resolvedDistrict = textResults[0].facility.district;
+
+                    // Find a hospital in the results or in the same district
+                    const hospitalResult = textResults.find(r => r.facility.type === 'HOSPITAL');
+                    if (hospitalResult) {
+                        resolvedHospital = hospitalResult.facility.facility;
+                        nearestHospitalInfo = `🏥 Nearest hospital: ${hospitalResult.facility.facility}\n📍 ${hospitalResult.facility.district} District, ${hospitalResult.facility.community}\n🗺️ https://maps.google.com/?q=${hospitalResult.facility.lat},${hospitalResult.facility.long}`;
+                    } else {
+                        resolvedHospital = textResults[0].facility.facility;
+                        nearestHospitalInfo = `🏥 Nearest facility: ${textResults[0].facility.facility}\n📍 ${textResults[0].facility.district} District, ${textResults[0].facility.community}\n🗺️ https://maps.google.com/?q=${textResults[0].facility.lat},${textResults[0].facility.long}`;
+                    }
+                }
+            }
+
+            // Consume the pending location data
+            const escalationData = consumePendingLocationCollection(userId);
+            if (escalationData) {
+                // Get user info
+                const { getUserInfoForEscalation } = await import('../utils/escalation-manager');
+                const userInfo = await getUserInfoForEscalation(userId);
+
+                // Build confirmation message with hospital info
+                let confirmMsg = '';
+                if (nearestHospitalInfo) {
+                    confirmMsg = `${nearestHospitalInfo}\n\n🚨 I'm connecting you with a health worker in your area now...`;
+                } else {
+                    confirmMsg = `🚨 I'm connecting you with a health worker now...`;
+                }
+
+                // Send hospital info + confirmation to user
+                await this.sendResponseWithVoice(chatId, messageId, confirmMsg, isVoiceMessage);
+
+                // Create escalation record
+                const escalationId = await createEscalationRecord(
+                    userId,
+                    escalationData.reason,
+                    escalationData.urgency,
+                    escalationData.latest_message
+                );
+
+                // Build report with location info
+                const report = {
+                    userId: userId,
+                    userPhone: userInfo?.phone || phone,
+                    userName: userInfo?.name,
+                    reason: escalationData.reason,
+                    conversationSummary: escalationData.conversation_summary || 'No summary available.',
+                    latestMessage: escalationData.latest_message,
+                    timestamp: new Date().toISOString(),
+                    urgencyLevel: escalationData.urgency as 'emergency' | 'urgent' | 'normal',
+                    district: resolvedDistrict,
+                    hospital: resolvedHospital
+                };
+
+                // Forward to location-filtered health workers (with fallback to all)
+                const sendMessageFn = async (targetChatId: string, msg: string): Promise<void> => {
+                    await this.sendResponse(targetChatId, messageId, msg);
+                };
+                const result = await forwardToHealthWorkers(report, sendMessageFn);
+
+                logger.info('Emergency escalation forwarded after location collection', {
+                    userId,
+                    district: resolvedDistrict,
+                    hospital: resolvedHospital,
+                    notifiedContacts: result.notifiedContacts,
+                    isLocationMatch: result.success
+                });
+                return; // Done processing
+            }
+        }
+
         // Detect and track intent (use processed/translated text)
         const { detectAndTrackIntent } = await import('../utils/intent-detector');
         const intentResult = await detectAndTrackIntent(processedText, message.dbMessageId || messageId);

@@ -380,6 +380,246 @@ export const krioSymptomVariations: Record<string, string[]> = {
         'rash', 'itch', 'scratch', 'skin de bon', 'skin issue',
         'swelling na skin', 'boil', 'sore na skin'
     ],
+    // New: Lower stomach/abdomen specific
+    lowerStomachPain: [
+        'button bele', 'bɔtɔm bɛlɛ', 'bottom belly', 'button belly',
+        'bele onda', 'bɛlɛ ɔnda', 'belly onda', 'onda bele',
+        'down bele', 'low bele', 'low belly', 'lower belly',
+        'bele dae pain', 'bele de pen', 'bɛlɛ de pɛn',
+        'mi bele de pen', 'mi bele dae pain', 'me bele dae pain',
+        'mi bɛlɛ de pɛn', 'stomach de pen', 'stomach pen',
+        'bele gripe', 'bɛlɛ grayp', 'belly gripe',
+        'bele de cut', 'bɛlɛ de kɔt', 'bele de cut mi'
+    ],
+    // Menstrual related
+    menstrualPain: [
+        'mensis pen', 'mɛnsis pɛn', 'period pen', 'period pain',
+        'cramps', 'bele cramp', 'mensis de kam', 'period de kam',
+        'blood de komot', 'blɔd de kɔmɔt', 'monthly sik',
+        'mi period late', 'period nɔ kam', 'period kam late',
+        'mensis nɔ fayn', 'mɛnsis prɔblɛm', 'heavy flow',
+        'blood plenti', 'mensis plenti', 'irregular period'
+    ],
+    backPain: [
+        'bak de pen', 'back de pen', 'bak de pɛn', 'mi bak',
+        'bak pen', 'back pain', 'low bak', 'lɔ bak pɛn',
+        'bak stif', 'mi bak stif', 'spine pen', 'bak bone pen',
+        'mi bak de kil mi', 'waist pen', 'wes de pen'
+    ],
+    legPain: [
+        'fut de pen', 'leg de pen', 'fut pɛn', 'leg pain',
+        'mi fut', 'mi leg', 'fut swel', 'leg swel',
+        'fut heavy', 'leg heavy', 'fut tayad', 'leg tired',
+        'knee de pen', 'nkpankpan de pen', 'ankle de pen'
+    ],
+    armPain: [
+        'an de pen', 'arm de pen', 'an pɛn', 'arm pain',
+        'mi an', 'mi arm', 'an weak', 'arm weak',
+        'elbow de pen', 'ɛlbo de pɛn', 'shoulder de pen',
+        'sholda de pɛn', 'wrist de pen', 'finga de pen'
+    ],
+    neckPain: [
+        'nek de pen', 'nɛk de pɛn', 'neck pen', 'neck pain',
+        'mi nek stif', 'nek stif', 'nɛk nɔ de tɔn',
+        'crick na nek', 'krik na nɛk', 'neck sprain'
+    ],
+    eyeProblem: [
+        'ay de pen', 'eye de pen', 'ay pɛn', 'eye pain',
+        'mi ay', 'ay red', 'eye red', 'ay itch',
+        'ay wata de komot', 'eye wata', 'blurry vision',
+        'a nɔ de si fayn', 'a no de si', 'blind', 'ay swel'
+    ],
+    earProblem: [
+        'yes de pen', 'yɛs de pɛn', 'ear de pen', 'ear pain',
+        'mi yes', 'yes block', 'ear block', 'a no de yeri',
+        'yes wata', 'ear discharge', 'yes infekshɔn', 'yes itch'
+    ],
+    toothProblem: [
+        'tit de pen', 'tooth de pen', 'tit pɛn', 'toothache',
+        'mi tit', 'maldan', 'tit swel', 'gum de pen',
+        'tit de shek', 'cavity', 'tit dɔti', 'tit decay'
+    ],
+    throatProblem: [
+        'trot de pen', 'trɔt de pɛn', 'throat sore', 'sore throat',
+        'mi trot', 'trot dray', 'trot scratch', 'hard fɔ swalo',
+        'trot infekshɔn', 'tonsil swel', 'voice los'
+    ],
+    chestSymptoms: [
+        'ches de pen', 'chest de pen', 'ches pɛn', 'chest pain',
+        'mi ches', 'ches tayt', 'chest tight', 'ches heavy',
+        'hard fɔ brid', 'short bret', 'a de gasp', 'wheezing'
+    ],
+    urinaryProblem: [
+        'pis de bon', 'pis de bɔn', 'hot urine', 'pis hot',
+        'pis plenti', 'frequent pis', 'blood na pis', 'pis pain',
+        'a no fit hol pis', 'pis de komot laylay', 'dark pis',
+        'pis smɛl', 'pis problem', 'UTI', 'blada infekshɔn'
+    ],
+    digestiveProblem: [
+        'bele big', 'bɛlɛ swell', 'bloating', 'gas na bele',
+        'nɔ fit stul', 'constipation', 'bele stif', 'hard stul',
+        'it nɔ de go dɔn', 'indigestion', 'heartburn', 'asid'
+    ],
+    // General body pain expressions
+    generalPain: [
+        'a de fil me bodi', 'a dae feel me body', 'ar dae feel me body',
+        'mi bodi de pen', 'bodi pɛn', 'body hurt', 'all over pain',
+        'bodi ach', 'body ache', 'a nɔ fayn', 'a nɔ wɛl',
+        'a sik', 'mi sik', 'i sik', 'feeling sick',
+        'nɔ gɛt pawa', 'weak', 'tayad', 'tired', 'exhausted'
+    ],
+    // Fever related
+    feverSymptoms: [
+        'bodi ot', 'bɔdi ɔt', 'body hot', 'fiba', 'fever',
+        'a gɛt fiba', 'fiba de', 'temperature', 'bodi de bon',
+        'skin ot', 'a de shiva', 'shivering', 'kol de kech mi',
+        'malaria', 'maleria', 'cold ketch mi'
+    ],
+};
+
+// Body Location Descriptions in Krio (for understanding where pain is)
+export const krioBodyLocations: Record<string, string[]> = {
+    // Stomach/Belly regions
+    upperStomach: ['top bele', 'up bele', 'bele ɔp', 'belly top', 'ches ɔnda', 'under chest'],
+    lowerStomach: ['button bele', 'bɔtɔm bɛlɛ', 'bottom belly', 'onda bele', 'bele onda', 'low bele', 'down bele'],
+    rightSide: ['rayt sayd', 'right side', 'rayt bele', 'di right', 'na rayt'],
+    leftSide: ['lɛf sayd', 'left side', 'lɛf bele', 'di left', 'na lɛf'],
+    center: ['midul', 'middle', 'sɛnta', 'center', 'na midul'],
+    allOver: ['ɔl oba', 'all over', 'ɛvriwia', 'everywhere', 'hol bele'],
+
+    // Other body regions
+    upperBack: ['top bak', 'up bak', 'sholda area'],
+    lowerBack: ['low bak', 'lɔ bak', 'bak ɔnda', 'waist', 'wes'],
+    frontChest: ['front ches', 'ches bifo', 'brɛst area'],
+    sideChest: ['sayd ches', 'rib area', 'unda arm'],
+
+    // Head regions
+    forehead: ['fored', 'forehead', 'ɛd bifo', 'frɔnt ɛd'],
+    backHead: ['bak ɛd', 'head back', 'ɛd bihayn'],
+    temples: ['sayd ɛd', 'temple', 'near ay'],
+    crown: ['top ɛd', 'head top', 'ɛd ɔp'],
+
+    // Limb regions
+    upperArm: ['top an', 'up arm', 'an ɔp'],
+    lowerArm: ['low an', 'forearm', 'an ɔnda'],
+    upperLeg: ['lap', 'thigh', 'top fut'],
+    lowerLeg: ['kaf', 'calf', 'low fut', 'fut ɔnda'],
+};
+
+// Conversational Health Advice Responses in Krio
+export const krioHealthAdvice: Record<string, { krio: string; english: string }> = {
+    // Stomach pain advice
+    stomachPainAdvice: {
+        krio: 'Fɔ bɛlɛ pɛn, tray fɔ drink plɛnti wata, it layt it, ɛn res. If di pɛn nɔ stɔp afta 2 die, go si dɔktɔ.',
+        english: 'For stomach pain, try drinking plenty of water, eat light foods, and rest. If pain persists after 2 days, see a doctor.'
+    },
+    lowerStomachAdvice: {
+        krio: 'Bɔtɔm bɛlɛ pɛn kin min difrɛn tin. Res, drink wata, ɛn put warm klɔt na di area. If i de wɔs ɔ yu gɛt fiba, go na klinik.',
+        english: 'Lower stomach pain can mean different things. Rest, drink water, and put a warm cloth on the area. If it gets worse or you have fever, go to clinic.'
+    },
+
+    // Fever advice
+    feverAdvice: {
+        krio: 'Fɔ fiba, tek paracetamol, drink plɛnti wata, ɛn wia layt klos. Spɔnj yu bɔdi wit dɔn kol wata. If fiba ay pas 3 die, go na ɔspitul.',
+        english: 'For fever, take paracetamol, drink plenty of water, and wear light clothes. Sponge your body with lukewarm water. If fever lasts more than 3 days, go to hospital.'
+    },
+
+    // Headache advice
+    headacheAdvice: {
+        krio: 'Fɔ ɛdɛk, res na dark rum, drink wata, ɛn tek paracetamol. Nɔ wach fon ɔ TV plɛnti. If ɛd de kɔntinyu fɔ pɛn, go si dɔktɔ.',
+        english: 'For headache, rest in a dark room, drink water, and take paracetamol. Avoid phone or TV. If headache continues, see a doctor.'
+    },
+
+    // Body pain advice
+    bodyPainAdvice: {
+        krio: 'Fɔ bɔdi pɛn, res gud gud, drink wata, ɛn tek paracetamol fɔ di pɛn. Strɛch yu bɔdi smɔl smɔl. If bɔdi de pɛn plɛnti ɛn yu gɛt fiba, go na klinik fɔ chɛk malaria.',
+        english: 'For body pain, rest well, drink water, and take paracetamol for the pain. Stretch your body gently. If you have severe body pain with fever, go to clinic to check for malaria.'
+    },
+
+    // Cough advice  
+    coughAdvice: {
+        krio: 'Fɔ kɔf, drink warm wata wit lemon ɛn hɔni. Gargle salt wata. If kɔf gɛt blood ɔ i pas 2 wik, go na ɔspitul kwik.',
+        english: 'For cough, drink warm water with lemon and honey. Gargle salt water. If cough has blood or lasts more than 2 weeks, go to hospital quickly.'
+    },
+
+    // Diarrhea advice
+    diarrheaAdvice: {
+        krio: 'Fɔ rɔnbɛlɛ, drink ORS (salt ɛn shuga wata) plɛnti plɛnti. It banana, rays, ɛn toast. Nɔ drink milk ɔ oily it. If i de kɔntinyu mɔ dan 3 die, go na klinik.',
+        english: 'For diarrhea, drink ORS (salt and sugar water) frequently. Eat banana, rice, and toast. Avoid milk and oily food. If it continues more than 3 days, go to clinic.'
+    },
+
+    // Back pain advice
+    backPainAdvice: {
+        krio: 'Fɔ bak pɛn, res flat, put warm klɔt na yu bak, ɛn tek paracetamol. Nɔ lift heavy tin. If pɛn de go dɔn na yu fut ɔ yu nɔ fit wok, go si dɔktɔ.',
+        english: 'For back pain, rest flat, put a warm cloth on your back, and take paracetamol. Don\'t lift heavy things. If pain goes down to your leg or you can\'t walk, see a doctor.'
+    },
+
+    // Menstrual pain advice
+    menstrualPainAdvice: {
+        krio: 'Fɔ mɛnsis pɛn, put warm wata bɔtul na yu bɛlɛ, tek ibuprofen ɔ paracetamol, ɛn res. Drink warm ti. If blɔd plɛnti bad ɔ pɛn tu much, go si dɔktɔ.',
+        english: 'For menstrual pain, put a hot water bottle on your belly, take ibuprofen or paracetamol, and rest. Drink warm tea. If bleeding is heavy or pain is severe, see a doctor.'
+    },
+
+    // Cold/flu advice
+    coldAdvice: {
+        krio: 'Fɔ kol, res na os, drink warm wata ɛn sup, ɛn slip plɛnti. Gargle salt wata fɔ trɔt. Tek paracetamol if yu gɛt fiba.',
+        english: 'For cold, rest at home, drink warm water and soup, and sleep plenty. Gargle salt water for throat. Take paracetamol if you have fever.'
+    },
+
+    // Skin problem advice
+    skinAdvice: {
+        krio: 'Fɔ skin prɔblɛm, kip di area klin ɛn dray. Nɔ scratch am. Yuz kɔkɔnɔt ɔyl ɔ shea bɔta fɔ mɔysturaz. If i de sprɛd ɔ gɛt pus, go na klinik.',
+        english: 'For skin problems, keep the area clean and dry. Don\'t scratch. Use coconut oil or shea butter to moisturize. If it spreads or has pus, go to clinic.'
+    },
+
+    // General wellness
+    generalWellness: {
+        krio: 'Fɔ kin kip wɛl: drink 8 glasis wata ɛvri die, it frut ɛn vegɛtabul, slip 8 awa, exercise, ɛn was yu an plɛnti.',
+        english: 'To stay well: drink 8 glasses of water daily, eat fruits and vegetables, sleep 8 hours, exercise, and wash your hands often.'
+    }
+};
+
+// Krio phrases for symptom clarification questions
+export const krioQuestions: Record<string, string> = {
+    whereDoesItHurt: 'Usay de pɛn yu? / Usay di pɛn de?',
+    howLongPain: 'Aw lɔng dis pɛn dɔn de?',
+    howBadPain: 'Aw bad di pɛn de? Smɔl, medium, ɔ bad bad?',
+    whenDidItStart: 'Us tɛm i bigin?',
+    anyOtherSymptoms: 'Yu gɛt ɔda tin we de wɔri yu?',
+    haveFever: 'Yu gɛt fiba? Yu bɔdi ɔt?',
+    eatingDrinking: 'Yu de it ɛn drink fayn?',
+    sleepingWell: 'Yu de slip gud?',
+    tookMedicine: 'Yu dɔn tek ɛni mɛrɛsin?',
+    worseOrBetter: 'I de bɛta ɔ i de wɔs?',
+    pregnant: 'Yu gɛt bɛlɛ? (fɔ uman)',
+    lastPeriod: 'Us tɛm yu las mɛnsis kam?',
+    allergies: 'Yu gɛt ɛni allergy?',
+    chronicCondition: 'Yu gɛt ɛni sik we yu de git tritmɛnt fɔ?',
+    recentTravel: 'Yu dɔn travel ɛniwia lɛtli?',
+};
+
+// Krio responses for acknowledging symptoms
+export const krioAcknowledgments: Record<string, string> = {
+    understandPain: 'A ɔndastand say yu de pɛn. Mek wi si aw a kin ɛp yu.',
+    sorryToHear: 'A sɔri fɔ yɛ dat yu nɔ fayn. Lɛ mi tɛl yu wetin yu kin du.',
+    takingSeriously: 'A de tek dis siriɔs. Mek yu tɛl mi mɔ.',
+    letMeHelp: 'Lɛ mi ɛp yu. Tɛl mi mɔ bɔt wetin de wɔri yu.',
+    dontWorry: 'Nɔ wɔri, wi go fɛn solushɔn togɛda.',
+    commonProblem: 'Dis na kɔmɔn prɔblɛm. A gɛt advays fɔ yu.',
+    normallyCurable: 'Nɔmali dis kin mɛn. Fɔlo di advays.',
+    seriousNeedClinic: 'Dis sɔm fayn, yu fɔ go na klinik tide.',
+    emergencyNow: 'Dis na emɛjɛnsi! Go na ɔspitul naw naw!',
+};
+
+// Common Krio conversational fillers and connectors
+export const krioFillers: Record<string, string[]> = {
+    agreement: ['Na so', 'Yɛs', 'Oke', 'Olrayt', 'A gri', 'Dat tru'],
+    understanding: ['A ɔndastand', 'A yɛ yu', 'I dɔn klin', 'A de fɔlo yu'],
+    thinking: ['Lɛ mi tink...', 'Oke, so...', 'Hmm...', 'A si...'],
+    transition: ['So', 'Naw', 'Oke so', 'Afta dat', 'Nɛks tin'],
+    emphasis: ['Fɔ tru', 'Fɔ riɛl', 'Siriɔsli', 'A min am', 'Na tru tru'],
+    softening: ['Smɔl smɔl', 'Maybɛ', 'Sɔntɛm', 'I gɛt chans', 'I pɔsibul'],
+    encouragement: ['Yu go fayn', 'I go bɛta', 'Kip pawa', 'Nɔ wɔri', 'Yu de tray'],
 };
 
 // Body parts in Krio

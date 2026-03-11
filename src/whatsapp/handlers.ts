@@ -22,6 +22,10 @@ async function downloadMediaWithRetry(
                 setTimeout(() => reject(new Error('Download timeout')), timeoutMs);
             });
 
+            logger.info(`Media download attempt ${attempt}/${maxRetries} initiated`, {
+                messageId: message.id._serialized
+            });
+
             // Race between download and timeout
             const media = await Promise.race([
                 message.downloadMedia(),
@@ -52,8 +56,9 @@ async function downloadMediaWithRetry(
                 return null;
             }
 
-            // Wait before retry (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            // Wait before retry (exponential backoff) - increased delay
+            logger.info(`Retrying media download in ${2 * attempt}s...`);
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
         }
     }
     return null;

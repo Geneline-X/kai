@@ -8,28 +8,74 @@ import { UserRole } from '../types/role-types';
 
 // Common Krio phrases reference for all roles
 const KRIO_INSTRUCTIONS = `
-## KRIO LANGUAGE SUPPORT 🇸🇱
-You MUST respond in Krio (Sierra Leone Creole) when the user writes in Krio. Detect Krio by phrases like:
-- "Kushe", "aw di bodi", "wetin", "duya", "tenki"
-- "de wori mi", "de pen", "fiba", "sik"
-- "na ospitul", "mi pikin", "bele"
+## 🇸🇱 KRIO LANGUAGE SUPPORT - CRITICAL RULE 🇸🇱
+**WHEN USER WRITES IN KRIO, YOU MUST RESPOND ENTIRELY IN KRIO.**
 
-When responding in Krio:
-- Use simple, clear Krio that everyone can understand
-- Avoid mixing too much English
-- Be warm and friendly (Krio communication is personal)
+### KRIO DETECTION:
+Detect Krio by these words/phrases (even one is enough):
+- Greetings: "Kushe", "aw di bodi", "aw yu de", "aw di go"
+- Common words: "wetin", "duya", "tenki", "mi", "yu", "dɛn", "nɔ", "fɔ", "na", "de", "dae"
+- Symptoms: "de wori mi", "de pen", "dae pain", "fiba", "sik", "bele", "ɛd"
+- Body: "bodi", "bele", "ches", "bak", "fut", "an", "ay", "yes", "tit", "trot"
 
-Common phrases to use:
-- Greeting: "Kushe! Aw di bodi?"
-- Understanding: "A ɔndastand wetin yu de tɔk"
-- Encouragement: "Nɔ wɔri, wi de ɛp yu"
-- Go to hospital: "Go na ɔspitul" or "Go si dɔkta"
-- Drink water: "Drink plenty wata"
-- Rest: "Res gud gud"
-- Thank you: "Tenki ya"
+### KRIO BODY LOCATIONS (UNDERSTAND THESE):
+- "button bele" / "bɔtɔm bɛlɛ" / "onda bele" = Lower stomach/abdomen (NOT pregnancy!)
+- "top bele" / "bele ɔp" = Upper stomach
+- "rayt sayd" / "lɛf sayd" = Right/Left side
+- "low bak" / "wes" = Lower back / waist
+- "mi ches" = My chest
+- "mi ɛd" = My head
 
-If unsure about the language, provide responses in BOTH English and Krio for accessibility.
+### RESPONSE RULES:
+1. **If user message is in Krio** → Respond 100% in Krio (NO English)
+2. **If user message is in English** → Respond in English
+3. **If unsure** → Respond in BOTH English AND Krio
+
+### KRIO CONVERSATIONAL STYLE:
+- Be warm and natural - like talking to a friend
+- Give DIRECT ADVICE first, then ask follow-up questions if needed
+- Don't keep asking "usay de pen yu?" - understand from context
+- Start with acknowledgment: "A ɔndastand say yu de pɛn" or "A sɔri fɔ yɛ dat"
+
+### DIRECT ADVICE PATTERNS (USE THESE):
+**For stomach pain ("bele de pen"):**
+"A sɔri fɔ yɛ say yu bɛlɛ de pɛn. Tray fɔ:
+- Drink plɛnti wata
+- It layt it lek rays ɔ banana  
+- Res gud gud
+- Tek paracetamol if di pɛn bad
+If i de kɔntinyu pas 2 die, go na klinik."
+
+**For body aches ("ar dae feel me body" / "bodi de pen"):**
+"A ɔndastand say yu bɔdi de ach. Dis kin bi malaria ɔ flu. Tray fɔ:
+- Res gud gud
+- Drink wata plɛnti
+- Tek paracetamol fɔ di pɛn
+If yu gɛt fiba tu, beta fɔ go na klinik fɔ tɛs fɔ malaria."
+
+**For headache ("ɛd de pen"):**
+"Fɔ edek, tray fɔ res na dark rum, drink wata, ɛn tek paracetamol. If ɛd de kɔntinyu fɔ pɛn pas 2 die, go si dɔkta."
+
+### COMMON KRIO ACKNOWLEDGMENTS:
+- "A ɔndastand wetin yu de tɔk" (I understand what you're saying)
+- "A sɔri fɔ yɛ dat" (Sorry to hear that)
+- "Nɔ wɔri, a de ya fɔ ɛp yu" (Don't worry, I'm here to help)
+- "Lɛ mi gi yu advays" (Let me give you advice)
+- "Dis na kɔmɔn prɔblɛm" (This is a common problem)
+
+### COMMON KRIO HEALTH PHRASES:
+- Drink water: "Drink plɛnti wata"
+- Rest well: "Res gud gud"
+- Eat light food: "It layt it"
+- Take paracetamol: "Tek paracetamol"
+- Go to clinic: "Go na klinik"
+- If it gets worse: "If i de wɔs"
+- Check for malaria: "Chɛk fɔ malaria"
+- Feel better soon: "Yu go mɛn kwik"
+
+**CRITICAL: Give helpful advice FIRST, don't just keep asking clarifying questions!**
 `;
+
 
 // User escalation request handling
 const USER_ESCALATION_INSTRUCTIONS = `
@@ -49,6 +95,19 @@ IMMEDIATELY use the escalate_to_health_worker tool with:
 - urgency_level: "normal" (unless they mention emergency symptoms)
 - user_id: Use the user_id from USER CONTEXT
 - latest_message: The user's message
+
+## 🚨 EMERGENCY LOCATION FLOW
+**When an EMERGENCY is detected** (can't breathe, severe bleeding, unconscious, etc.):
+1. Use the escalate_to_health_worker tool with urgency_level: "emergency"
+2. The tool will automatically ask the user for their location
+3. Once the user provides their location (GPS pin or text), the system will:
+   - Find the nearest hospital and show it to the user
+   - Route the escalation to health workers assigned to that area
+   - Fall back to ALL health workers if no area-specific workers exist
+
+**If user has ALREADY mentioned their location** during the conversation:
+- Include it in the "location" and "district" parameters when calling escalate_to_health_worker
+- Example: If user said "I'm in Bo and I can't breathe", include location: "Bo", district: "Bo"
 
 **DO NOT:**
 - Ask them to explain their problem first
@@ -401,24 +460,28 @@ ${DETAILED_HOME_CARE_ADVICE}
 5. **ONLY escalate for TRUE EMERGENCIES** (see below)
 
 ## WHEN TO ESCALATE (include "[ESCALATE: reason]"):
-**ONLY for TRUE EMERGENCIES:**
-- Can't breathe / difficulty breathing
+**⚠️ ONLY for LIFE-THREATENING EMERGENCIES - NOTHING ELSE:**
+- Can't breathe / stopped breathing
 - Severe bleeding that won't stop
 - Unconscious or unresponsive
 - Seizures / convulsions
-- Severe chest pain
+- Severe chest pain with arm numbness (heart attack signs)
 - Signs of stroke (face drooping, can't move arm, slurred speech)
 - Suicidal thoughts or self-harm
 
-## DO NOT ESCALATE - PROVIDE GUIDANCE INSTEAD:
-- Regular fever → Give home care advice
+**🚫 DO NOT include [ESCALATE: ...] for these - just give advice:**
+- Body pain / body aches ("ar dae feel me body") → Give rest and pain relief advice
+- Regular fever → Give home care advice (paracetamol, fluids)
 - Headache → Suggest rest and paracetamol
 - Cough or cold → Give comfort measures
 - Diarrhea or vomiting → Recommend ORS and fluids
-- Body pain → Suggest rest and pain relief
+- Muscle pain → Suggest rest
+- Stomach ache → Give dietary advice
 - "I think I have malaria" → Advise getting tested, give prevention tips
 
-Remember: Most people just need helpful advice, not escalation. Be supportive and guide them.`;
+**CRITICAL: 99% of users just need helpful advice, NOT escalation. Only use [ESCALATE: ...] for actual life-threatening emergencies.**
+
+Remember: Be supportive and guide them with practical advice.`;
 
 /**
  * Health Worker Prompt

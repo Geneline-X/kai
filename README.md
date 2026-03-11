@@ -630,6 +630,11 @@ npm run clean
   - Reverse substring matching for better accuracy
   - No-guess policy prevents AI coordinate hallucinations
 
+### v2.0.0 - Major Feature Update
+- Implemented Location-Based Emergency Escalation
+- Added Database Migrations for specialized contacts
+- Updated Agent workflows and location tracking
+
 ### v1.0.1 - Initial Production Release
 - ✅ Core agentic reasoning loop with Geneline-X
 - ✅ Krio NLP and voice transcription

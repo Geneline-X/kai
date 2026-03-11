@@ -149,7 +149,10 @@ For escalate_to_health_worker tool (only after check confirms or emergency):
     "urgency_level": "emergency, urgent, or normal",
     "user_id": "the user's ID",
     "latest_message": "user's most recent message",
-    "conversation_summary": "summary of last few messages"
+    "conversation_summary": "summary of last few messages",
+    "location": "user's location if provided (area name or resolved from GPS)",
+    "district": "district name if known (e.g., Bo, Kenema)",
+    "hospital": "nearest hospital name if resolved"
   }
 }
 
@@ -186,6 +189,6 @@ IMPORTANT GUIDELINES:
 - For simple greetings or general knowledge questions, respond directly
 - Only output the JSON when calling a tool, nothing else
 - After tool results, respond naturally in plain text
-- If user writes in Krio, respond in Krio (or provide both English and Krio)`;
+- If user writes in Krio, you MUST respond ENTIRELY in Krio (not mixed with English)`;
   }
 }

@@ -23,6 +23,7 @@ export class WhatsAppClient extends EventEmitter {
     private state: WhatsAppClientState = {
         isReady: false,
     };
+    private authTime?: number;
 
     constructor() {
         super();
@@ -116,11 +117,11 @@ export class WhatsAppClient extends EventEmitter {
                     '--js-flags=--max-old-space-size=512',
                 ],
                 timeout: 120000, // 120 second timeout
+                protocolTimeout: 180000, // 180 second protocol timeout
             },
-            // Use web version cache to avoid version mismatch issues
+            // Use local web version cache for better stability
             webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/AmineSoukworker/WhatsApp-Web-Version/main/version.json',
+                type: 'local',
             },
         });
 
@@ -156,8 +157,11 @@ export class WhatsAppClient extends EventEmitter {
         });
 
         this.client.on('ready', () => {
+            const readyTime = Date.now();
+            const duration = this.authTime ? ((readyTime - this.authTime) / 1000).toFixed(1) : 'unknown';
+
             logger.info('═══════════════════════════════════════════════════════');
-            logger.info('✓ WhatsApp client is READY');
+            logger.info(`✓ WhatsApp client is READY (Sync took ${duration}s)`);
             logger.info('═══════════════════════════════════════════════════════');
             this.state.isReady = true;
             this.state.qrCode = undefined;
@@ -175,7 +179,8 @@ export class WhatsAppClient extends EventEmitter {
         });
 
         this.client.on('authenticated', () => {
-            logger.info('✓ WhatsApp client authenticated successfully');
+            this.authTime = Date.now();
+            logger.info('✓ WhatsApp client authenticated successfully - starting sync...');
             this.emit('authenticated');
         });
 
