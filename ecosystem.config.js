@@ -16,15 +16,17 @@ module.exports = {
             log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
             error_file: 'logs/pm2-error.log',
             out_file: 'logs/pm2-out.log',
+            merge_logs: true,
         },
         {
             name: 'webjs-auto-updater',
             script: './scripts/auto-update-webjs.sh',
+            interpreter: '/bin/bash',
             instances: 1,
             exec_mode: 'fork',
             cron_restart: '0 3 * * *', // Run every day at 3 AM
             watch: false,
-            autorestart: false, // Don't restart automatically after it finishes
+            autorestart: false, // Don't restart after script finishes
             log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
             error_file: 'logs/updater-error.log',
             out_file: 'logs/updater-out.log',
