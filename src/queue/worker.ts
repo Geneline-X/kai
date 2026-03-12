@@ -453,9 +453,22 @@ export class MessageWorker {
             confidence: agentResponse.confidence
         });
 
-        // Handle escalation if needed
-        if (agentResponse.shouldEscalate) {
-            await this.handleEscalation(chatId, messageId, messageText, agentResponse, userRole);
+        // Handle escalation if needed — but only if the escalation tool didn't already handle it
+        // The escalation tool sets either a pendingEscalation or pendingLocationCollection
+        if (agentResponse.shouldEscalate && userId) {
+            const { getPendingEscalation } = await import('../agent/tools/escalation-tool');
+            const { isPendingLocationCollection } = await import('../utils/escalation-manager');
+
+            const toolAlreadyHandled = getPendingEscalation(userId) || isPendingLocationCollection(userId);
+            if (!toolAlreadyHandled) {
+                await this.handleEscalation(chatId, messageId, messageText, agentResponse, userRole);
+            } else {
+                logger.info('Skipping handleEscalation — escalation tool already handled this request', {
+                    userId,
+                    hasPendingEscalation: !!getPendingEscalation(userId),
+                    hasPendingLocation: isPendingLocationCollection(userId)
+                });
+            }
         }
 
         // Send response (voice or text based on original message type)
